@@ -1,0 +1,23 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#fff6e8">
+  <title>鸭鸭日记 · V2 交互原型</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="app.js" type="module"></script>
+</head>
+<body>
+  <header class="header">
+    <div class="brand"><span class="brand-mark" aria-hidden="true">✦</span>鸭鸭日记<span class="brand-note">小小的发现，好好地收藏</span></div>
+    <div class="header-actions"><span id="voice-status" role="status">点小鸭，听语音引导</span><button id="history-button" class="quiet-button">故事本 <span id="record-count">0</span></button></div>
+  </header>
+  <main id="main" tabindex="-1"></main>
+  <footer class="demo-bar">
+    <div class="demo-controls"><a class="teacher-link" href="teacher.html">← 教师工作台</a><label for="mode-select" class="sr-only">输入方式</label><select id="mode-select"><option value="demo">示例体验（不录音）</option><option value="voice">麦克风体验</option></select><label for="roster-size" class="sr-only">示例排班人数</label><select id="roster-size"><option value="1">示例排班：1 人</option><option value="3" selected>示例排班：3 人</option><option value="4">示例排班：4 人</option></select></div>
+    <div class="demo-actions"><span id="demo-hint"></span><button id="sample-button" disabled>加入示例发言</button></div>
+  </footer>
+  <div id="notice" class="notice" role="status" hidden></div>
+</body>
+</html>

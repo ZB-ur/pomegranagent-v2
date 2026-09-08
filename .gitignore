@@ -1,0 +1,21 @@
+.acceptance/
+__pycache__/
+*.pyc
+.env
+*.sqlite3*
+.venv/
+.runtime/
+models/
+
+# Local editor state, credentials and exported classroom data
+.codex/
+.DS_Store
+.env.*
+*.pem
+*.key
+*.log
+*.db
+*.db-*
+*backup*.json
+docs/videos/*-raw.webm
+docs/screenshots/40-calendar-multiple.png

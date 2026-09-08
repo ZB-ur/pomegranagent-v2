@@ -1,0 +1,5 @@
+# Python 3.12; wheels include CPU inference and audio codecs (no system ffmpeg).
+sherpa-onnx==1.13.7
+sherpa-onnx-core==1.13.7
+av==18.1.0
+numpy==2.5.3
