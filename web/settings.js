@@ -1,12 +1,13 @@
 import {api} from './store.mjs';
 import {Recorder, Speaker} from './audio.mjs';
+import {duckLine} from './duck-voice.mjs';
 const $=selector=>document.querySelector(selector);
 const message=text=>{$('#message').textContent=text;};
 let settings, recording=false, busy=false, playback='idle', pending=false, restoring=false, fileEpoch=0;
 const configStatus=value=>value.chatConfigured?'对话参数已保存；真实效果请通过上面的虚构听说检查确认。':'尚未配置对话服务，本机听说可以先检查。';
 function controls(){
   $('#mic').disabled=busy||restoring;$('#listen').disabled=busy||recording||restoring;
-  $('#voice-choice').disabled=busy||recording||restoring;$('#save-voice').disabled=busy||recording||restoring;
+  $('#voice-choice').disabled=busy||recording||restoring;$('#speech-rate').disabled=busy||recording||restoring;$('#save-voice').disabled=busy||recording||restoring;
   $('#restore-file').disabled=restoring||busy||recording;$('#restore').disabled=restoring||busy||recording;
   $('#rerecord-device').hidden=!pending;$('#rerecord-device').disabled=busy||recording||restoring;
   $('#retry-recording').hidden=!pending;$('#retry-recording').disabled=busy||recording||restoring;
@@ -25,6 +26,7 @@ async function loadSettings(){
   const names={'zf_001':'中文女声一','zf_002':'中文女声二','zf_003':'中文女声三','zf_004':'中文女声四','zm_009':'中文男声'};
   $('#voice-choice').replaceChildren(new Option('默认中文女声',''),...voices.map(voice=>new Option(names[voice]||voice,voice)));
   $('#voice-choice').value=voices.includes(settings.voice)?settings.voice:'';
+  $('#speech-rate').value=String(settings.speechRate??1.05);
 }
 try{await loadSettings();const health=await api('health',undefined,'GET');$('#environment').textContent=[health.platform,health.release,health.architecture,'Python '+health.python].join(' / ');}catch(e){message(e.message);}
 $('#refresh-status').onclick=async()=>{try{showStatus(await api('settings',undefined,'GET'));}catch(e){message(e.message);}};
@@ -33,8 +35,8 @@ $('#settings-form').onsubmit=async event=>{
   try{const saved=await api('settings',Object.fromEntries(new FormData(event.target)),'PUT');event.target.elements.apiKey.value='';showStatus(saved);message('对话设置已保存。');}catch(e){message(e.message);}finally{button.disabled=false;}
 };
 $('#save-voice').onclick=async()=>{
-  if(recording||busy||restoring)return;speaker.stop();
-  try{await api('settings',{voice:$('#voice-choice').value},'PUT');speaker.clearCache();message('声音已保存，点“听中文引导”试听。');}catch(e){message(e.message);}
+  if(recording||busy||restoring)return;speaker.stop();busy=true;controls();
+  try{const saved=await api('settings',{voice:$('#voice-choice').value,speechRate:Number($('#speech-rate').value)},'PUT');settings=saved;$('#speech-rate').value=String(saved.speechRate);speaker.clearCache();message('声音和语速已保存，点“听中文引导”试听。');}catch(e){message(e.message);}finally{busy=false;controls();}
 };
 const speaker=new Speaker(value=>{
   if(value){playback='playing';$('#device-status').textContent='鸭鸭正在说话，请亲耳确认是否听清。';}
@@ -47,7 +49,7 @@ const recorder=new Recorder({
   onReady:async()=>{pending=false;busy=true;controls();$('#device-status').textContent='识别已完成，正在等待 DeepSeek 接话。';try{const result=await api('chat',{turns:[{role:'child',text:recognized}]});$('#device-result').textContent+='\n\n鸭鸭回应：'+result.text;playback='preparing';$('#device-status').textContent='正在本机准备鸭鸭的回应。';speaker.speak(result.text);}catch(e){$('#device-error').textContent=e.message;$('#device-status').textContent='本机识别已完成；对话服务还没接上。';}finally{busy=false;controls();}},
   onError:async error=>{$('#device-status').textContent='这段听说检查尚未完成，可以检查后重试。';busy=false;pending=await recorder.hasPending('device-check').catch(()=>false);controls();$('#device-error').textContent=error;}
 });
-$('#listen').onclick=()=>{if(recording||busy||restoring)return;$('#device-error').textContent='';playback='preparing';$('#device-status').textContent='正在准备中文引导，首次加载请稍等。';speaker.speak('你好呀，我是鸭鸭。按一下空格开始说，说完以后，再按一下。');};
+$('#listen').onclick=()=>{if(recording||busy||restoring)return;$('#device-error').textContent='';playback='preparing';$('#device-status').textContent='正在准备中文引导，首次加载请稍等。';speaker.speak(duckLine('你好呀，我是鸭鸭。按一下空格开始说，说完以后，再按一下。'));};
 $('#mic').onclick=()=>{if(busy)return;playback='idle';speaker.stop();$('#device-error').textContent='';if(recording)recorder.stop();else if(pending){$('#device-error').textContent='上一段录音还在，请先重试识别。';}else recorder.start('device-check');};
 $('#rerecord-device').onclick=async()=>{if(busy||recording||restoring)return;busy=true;controls();speaker.stop();try{if(await recorder.setAside('device-check')){pending=false;$('#device-error').textContent='';$('#device-status').textContent='上一段已保留。点击开始录音，说一段新的虚构内容。';}}catch(e){$('#device-error').textContent=e.message;}finally{busy=false;controls();}};
 $('#retry-recording').onclick=()=>{if(busy||recording||restoring)return;playback='idle';speaker.stop();recorder.retry('device-check');};

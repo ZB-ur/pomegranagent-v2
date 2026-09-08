@@ -136,8 +136,11 @@ class LocalVoice:
             recognizer.decode_stream(stream)
             return re.sub(r"<\|[^|]*\|>", "", stream.result.text).strip()
 
-    def speak(self, text: str, voice: str = "") -> bytes:
+    def speak(self, text: str, voice: str = "", speed: float = 1.05) -> bytes:
         import numpy as np
+        import math
+        if type(speed) not in (int, float) or not math.isfinite(speed) or not 0.85 <= speed <= 1.25:
+            raise ValueError("语速应为0.85至1.25。")
         text = text.strip()
         if not text or len(text) > 1000:
             raise ValueError("播音文字应为1至1000字。")
@@ -145,12 +148,12 @@ class LocalVoice:
         if selected not in self.VOICES:
             raise ValueError("请选择已安装的中文音色。")
         with self._tts_lock:
-            key = (text, selected)
+            key = (text, selected, speed)
             if key in self._cache:
                 self._cache.move_to_end(key)
                 return self._cache[key]
             engine = self._load_tts()
-            result = engine.generate(text, sid=self.VOICES[selected], speed=0.95)
+            result = engine.generate(text, sid=self.VOICES[selected], speed=speed)
             samples = np.asarray(result.samples)
             if samples.size == 0:
                 raise RuntimeError("本地播音没有生成声音，请重试。")

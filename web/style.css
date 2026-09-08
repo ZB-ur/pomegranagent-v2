@@ -40,6 +40,7 @@ main { padding: 0 42px 24px; min-height: calc(100dvh - 178px); outline: none; }
 .mascot[data-mood='happy'] .duck-sprite { background-position: 98% center; animation: celebrate 1.2s ease-out 2, breathe 4s 2.4s ease-in-out infinite; }
 .mascot[data-mood='listening'] .mascot-glow { animation: glow 3s ease-in-out infinite; }
 .mascot[data-mood='speaking'] .sound-tag { background: #f9dfb2; }
+.mascot[data-mood='speaking'][data-voice-paused='true'] .duck-sprite { animation-play-state: paused; }
 .mascot:disabled { opacity: 1; }
 .mascot[data-mood='thinking'] .duck-sprite { animation: listen 3s ease-in-out infinite; }
 .mascot[data-mood='thinking'] .mascot-glow { animation: glow 2s ease-in-out infinite; }
@@ -232,3 +233,9 @@ summary { font-size: 14px; cursor: pointer; color: #8a6e50; min-height: 26px; }
 .child-avatar.placeholder{background-image:none;display:inline-grid;place-items:center;background:#eee6d5;color:#8b7356;font-size:55px}
 
 [hidden] { display: none !important; }
+
+#safe-exit{position:fixed;right:24px;bottom:72px;z-index:30;background:#fff7df;border:2px solid #a7643c;padding:14px 20px;color:#75452e;box-shadow:0 4px 20px #51320d22}
+#exit-dialog{max-width:520px;width:calc(100% - 40px);border:1px solid #c8b795;border-radius:18px;padding:28px;color:#4b3c2e;background:#fffaf0}
+#exit-dialog::backdrop{background:#34291870}#exit-dialog p{line-height:1.8;margin:18px 0}#exit-dialog button{padding:12px;margin:6px;border:1px solid #bba787;border-radius:10px;background:#f5ecd9}#exit-dialog button:focus-visible{outline:3px solid #a7643c}
+
+.finish-countdown{position:relative;overflow:hidden;min-width:280px;margin-top:24px;isolation:isolate}.finish-countdown.counting{box-shadow:0 0 0 6px #edcf9455}.finish-countdown.counting::before{content:'';position:absolute;inset:0;background:#e2b75566;transform-origin:left;animation:fill-notebook 3s linear forwards;z-index:-1}.countdown-number{margin-left:18px;min-width:32px;border-radius:50%;background:#ffffff33;padding:3px}@keyframes fill-notebook{from{transform:scaleX(0)}to{transform:scaleX(1)}}@media(prefers-reduced-motion:reduce){.finish-countdown.counting::before{animation:none;transform:scaleX(1)}}

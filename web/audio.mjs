@@ -228,58 +228,139 @@ export class Recorder {
 export class Speaker {
   constructor(onState, onError) { Object.assign(this, {onState, onError}); this.epoch = 0; this.cache = new Map(); }
   stop() {
-    this.epoch++; this.controller?.abort();
-    if (this.audio) { this.audio.pause(); this.audio.onended = this.audio.onerror = null; this.audio = null; }
+    this.epoch++; this.controller?.abort(); this.warmController?.abort();
+    if (this.audio) { this.audio.pause(); this.audio.onended = this.audio.onerror = this.audio.onplaying = null; this.audio = null; }
     this.onState(false);
   }
-  clearCache() { this.stop(); for (const url of this.cache.values()) URL.revokeObjectURL(url); this.cache.clear(); }
+  clearCache() { this.stop(); this.dropCache(); }
+  dropCache() { for (const url of this.cache.values()) URL.revokeObjectURL(url); this.cache.clear(); }
+  async refreshSettings(signal) {
+    const controller = new AbortController();
+    const abort = () => controller.abort();
+    signal.addEventListener('abort', abort, {once:true});
+    if (signal.aborted) controller.abort();
+    const timer = setTimeout(abort, 10000);
+    try {
+      const response = await fetch('/api/settings', {signal:controller.signal});
+      if (!response.ok) throw await responseError(response, '还没读到声音设置，请重试。');
+      const value = await response.json();
+      const key = JSON.stringify([value.voice, value.speechRate]);
+      if (signal.aborted) throw new DOMException('Stopped', 'AbortError');
+      if (this.settingsKey !== key) { this.dropCache(); this.settingsKey = key; }
+    } catch (error) {
+      if (!signal.aborted && error.name === 'AbortError') throw new Error('读取声音设置等待太久，请重试。');
+      throw error;
+    } finally { clearTimeout(timer); signal.removeEventListener('abort', abort); }
+  }
+  async prepare(text, signal) {
+    if (signal.aborted) throw new DOMException('Stopped', 'AbortError');
+    if (this.cache.has(text)) return this.cache.get(text);
+    const controller = new AbortController();
+    const abort = () => controller.abort();
+    signal.addEventListener('abort', abort, {once:true});
+    let timedOut = false;
+    const timer = setTimeout(() => { timedOut = true; controller.abort(); }, 60000);
+    try {
+      const response = await fetch('/api/speech', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({text}), signal:controller.signal});
+      if (!response.ok) throw await responseError(response, '语音引导还没准备好，请老师检查本机语音后，点鸭鸭重听。');
+      const blob = await response.blob();
+      if (signal.aborted) throw new DOMException('Stopped', 'AbortError');
+      const url = URL.createObjectURL(blob);
+      if (this.cache.size >= 40) { const [key, old] = this.cache.entries().next().value; URL.revokeObjectURL(old); this.cache.delete(key); }
+      this.cache.set(text, url);
+      return url;
+    } catch (error) {
+      if (timedOut) throw new Error('准备声音等待太久了，请老师检查本机服务，再点鸭鸭重听。');
+      throw error;
+    } finally { clearTimeout(timer); signal.removeEventListener('abort', abort); }
+  }
+  async preload(texts) {
+    this.warmController?.abort();
+    const controller = this.warmController = new AbortController();
+    try {
+      await this.refreshSettings(controller.signal);
+      for (const text of texts) await this.prepare(text, controller.signal);
+    } catch { /* Optional idle warming must never replace an actionable voice error. */ }
+  }
   async speak(text, onDone, playback = {}) {
-    this.stop(); const epoch = this.epoch; this.controller = new AbortController();
+    this.stop(); const epoch = this.epoch; const controller = this.controller = new AbortController();
+    const current = () => epoch === this.epoch && !controller.signal.aborted;
+    const requestedAt = performance.now();
+    let previousEndedAt = null;
     const chunks = [];
     for (const sentence of String(text).match(/[^。！？!?\n]+[。！？!?\n]*|[。！？!?\n]+/g) || []) {
-      for (let offset = 0; offset < sentence.length; offset += 240) chunks.push(sentence.slice(offset, offset + 240));
+      for (let offset = 0; offset < sentence.length; offset += 240) chunks.push({text:sentence.slice(offset, offset + 240)});
     }
-    let index = 0;
-    const playNext = async () => {
-    const text = chunks[index++];
-    if (!text) { this.onState(false); onDone?.(); return; }
-    this.onState(false); playback.onPreparing?.();
-    try {
-      let url = this.cache.get(text);
-      if (!url) {
-        const controller = this.controller;
-        let timedOut = false, blob;
-        const timer = setTimeout(() => { timedOut = true; controller.abort(); }, 60000);
-        try {
-          const response = await fetch('/api/speech', {method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({text}), signal: controller.signal});
-          if (!response.ok) throw await responseError(response, '语音引导还没准备好，请老师检查本机语音后，点鸭鸭重听。');
-          blob = await response.blob();
-        } catch (error) {
-          if (timedOut) throw new Error('准备声音等待太久了，请老师检查本机服务，再点鸭鸭重听。');
-          throw error;
-        } finally { clearTimeout(timer); }
-        if (epoch !== this.epoch) return;
-        url = URL.createObjectURL(blob);
-        if (this.cache.size >= 40) { const [key, old] = this.cache.entries().next().value; URL.revokeObjectURL(old); this.cache.delete(key); }
-        this.cache.set(text, url);
-      }
-      if (epoch !== this.epoch) return;
-      const audio = this.audio = new Audio(url);
-      let chunkStarted=false;
-      audio.onplaying = () => { if (epoch === this.epoch && !chunkStarted) { chunkStarted=true; this.onState(true); playback.onChunk?.(text); } };
-      audio.onended = () => { if (epoch === this.epoch) { if (index < chunks.length) void playNext(); else { this.onState(false); onDone?.(); } } };
-      audio.onerror = () => { if (epoch === this.epoch) { this.onState(false); playback.onError?.(); this.onError('声音没有播出来，请老师检查扬声器，再点鸭鸭重听。'); } };
-      let playTimer;
-      try {
-        await Promise.race([audio.play(), new Promise((_, reject) => { playTimer = setTimeout(() => reject(new Error('浏览器还没有开始播放，请老师打开这个页面，再点鸭鸭重听。')), 15000); })]);
-      } finally { clearTimeout(playTimer); }
-      if (epoch === this.epoch) this.onState(true);
-    } catch (error) {
-      if (epoch !== this.epoch || error.name === 'AbortError') return;
-      this.audio?.pause();
-      this.onState(false); playback.onError?.(); this.onError(error.name === 'NotAllowedError' ? '点一下鸭鸭，开启声音引导。' : error.message);
+    // A call is an audio-only part of the same owned playback queue. Never send
+    // it to TTS or expose it as a child's words. End cues remain after the reply.
+    if (['prefix','suffix'].includes(playback.duckCall) && chunks.length) {
+      let boundary=0, length=0;
+      while(boundary<chunks.length && length<String(playback.duckCallText || text).length) length+=chunks[boundary++].text.length;
+      chunks.splice(playback.duckCall==='prefix'?0:boundary,0,{cue:playback.duckCall});
     }
+    const fail = error => {
+      if (!current() || error.name === 'AbortError') return;
+      controller.abort(); this.audio?.pause(); this.onState(false); playback.onError?.();
+      this.onError(error.name === 'NotAllowedError' ? '点一下鸭鸭，开启声音引导。' : error.message);
     };
-    await playNext();
+    // Resolve lookahead failures into values so a failed future chunk cannot
+    // reject unhandled or interrupt the sentence that is already playing.
+    const prepared = new Map();
+    const prepare = index => {
+      if(prepared.has(index))return prepared.get(index);
+      const entry = {ready:false};
+      prepared.set(index,entry);
+      const chunk=chunks[index];
+      const source=chunk.cue ? Promise.resolve('/assets/duck-call/'+chunk.cue+'.wav') : this.prepare(chunk.text, controller.signal);
+      entry.promise = source.then(url => {
+        const audio = new Audio(url); audio.preload = 'auto'; audio.load();
+        entry.ready = true; return {audio};
+      }, error => ({error}));
+      return entry;
+    };
+    const play = async (index, entry) => {
+      if (!current()) return;
+      if (!entry.ready) { this.onState(false, {phase:index ? 'buffering' : 'preparing'}); playback.onPreparing?.(); }
+      const result = await entry.promise;
+      if (!current()) return;
+      if (result.error) { fail(result.error); return; }
+      const audio = this.audio = result.audio;
+      // Generate the following sentence while this one plays, not after it ends.
+      const next = index + 1 < chunks.length ? prepare(index + 1) : null;
+      let started = false;
+      audio.onplaying = () => {
+        if (current() && !started) {
+          started = true;
+          console.debug('[voice] playback ' + JSON.stringify({chunk:index + 1, cue:chunks[index].cue, firstAudioMs:index === 0 ? Math.round(performance.now() - requestedAt) : undefined, gapMs:previousEndedAt === null ? undefined : Math.round(performance.now() - previousEndedAt)}));
+          this.onState(true);
+          if(chunks[index].cue)playback.onCue?.();else playback.onChunk?.(chunks[index].text);
+        }
+      };
+      audio.onended = () => {
+        if (!current()) return;
+        previousEndedAt = performance.now();
+        if (next) void play(index + 1, next).catch(fail);
+        else { this.audio = null; this.onState(false); onDone?.(); }
+      };
+      audio.onerror = () => fail(new Error('声音没有播出来，请老师检查扬声器，再点鸭鸭重听。'));
+      let timer;
+      try {
+        await Promise.race([audio.play(), new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('浏览器还没有开始播放，请老师打开这个页面，再点鸭鸭重听。')), 15000); })]);
+      } finally { clearTimeout(timer); }
+    };
+    try {
+      if (!chunks.length) { onDone?.(); return; }
+      playback.onPreparing?.();
+      await this.refreshSettings(controller.signal);
+      // Prepare the first spoken sentence before a prefix call, so the call
+      // cannot be followed by a fresh synthesis wait.
+      if(current() && chunks[0].cue && chunks[1]) {
+        const first=prepare(0), speech=await prepare(1).promise;
+        if(speech.error){fail(speech.error);return;}
+        if(current())await play(0,first);
+        return;
+      }
+      if (current()) await play(0, prepare(0));
+    } catch (error) { fail(error); }
   }
 }

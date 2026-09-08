@@ -9,8 +9,10 @@ export function dateKey(date = new Date()) {
 export const asDate = value => new Date(`${value}T12:00:00`);
 export function shiftDay(value, delta) { const d = asDate(value); d.setDate(d.getDate()+delta); return dateKey(d); }
 export let state;
-export async function api(path, body, method='POST') {
+export async function api(path, body, method='POST', signal) {
   const controller=new AbortController();
+  const cancel=()=>controller.abort();
+  if(signal?.aborted)cancel();else signal?.addEventListener('abort',cancel,{once:true});
   const timer=setTimeout(()=>controller.abort(),['chat','summary'].includes(path)?90000:15000);
   try {
   const response = await fetch('/api/'+path, {signal:controller.signal, method, headers:body===undefined?{}:{'Content-Type':'application/json'}, body:body===undefined?undefined:JSON.stringify(body)});
@@ -24,7 +26,7 @@ export async function api(path, body, method='POST') {
     if(error.name==='AbortError')throw new Error('等待服务太久了。当前内容还在，请检查本机服务后重试。');
     if(error instanceof TypeError)throw new Error('暂时连不上本机服务。当前内容还在，请启动服务后重试。');
     throw error;
-  } finally {clearTimeout(timer);}
+  } finally {clearTimeout(timer);signal?.removeEventListener('abort',cancel);}
 }
 let tail=Promise.resolve();
 function enqueue(work) {

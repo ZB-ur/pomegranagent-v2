@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>柔和鸭叫试听 · 鸭鸭日记本</title>
+  <link rel="stylesheet" href="quack-preview.css">
+  <script type="module" src="quack-preview.mjs?v=2"></script>
+</head>
+<body>
+  <main>
+    <header>
+      <p class="eyebrow">鸭鸭日记本 · 声音小样</p>
+      <span class="badge">试听对比 · 不改变儿童端</span>
+      <h1>一点鸭叫，<br>听听是否更亲切。</h1>
+      <p class="intro">正文沿用现有声音，把柔和的预录鸭叫接在句子前后。请用平时陪孩子使用的音量试听。</p>
+      <label for="recording">选择鸭叫素材：</label>
+      <select id="recording">
+        <option value="qubodup">新素材 · Duck Quack（qubodup）</option>
+        <option value="original">上一版 · Soft Duck Quack（OwennewO）</option>
+      </select>
+      <p id="recording-note" class="note"></p>
+    </header>
+    <section class="card" aria-labelledby="compare-title">
+      <h2 id="compare-title">同一句话，三种听法</h2>
+      <blockquote>你给小鸭添了水，谢谢你把这件事讲给我听。</blockquote>
+      <div class="comparisons">
+        <button data-sample="voice" disabled><span class="number">01</span><strong>原句</strong><span>只有正文声音</span></button>
+        <button data-sample="prefix" disabled><span class="number">02</span><strong>开头鸭叫</strong><span>鸭叫 → 正文</span></button>
+        <button data-sample="suffix" disabled><span class="number">03</span><strong>结尾鸭叫</strong><span>正文 → 鸭叫</span></button>
+      </div>
+      <div class="single-sounds"><span>也可以单独听：</span><button data-sample="soft" disabled>柔和鸭叫</button><button data-sample="softer" disabled>更轻鸭叫</button></div>
+    </section>
+    <section class="card random-card" aria-labelledby="random-title">
+      <div><h2 id="random-title">偶尔叫一声</h2><p>每次独立抽签：35% 加鸭叫，65% 只说正文。<br>有鸭叫时，开头和结尾各一半；一整句最多一次。</p></div>
+      <button id="random-play" class="primary" disabled>随机试播一次</button>
+    </section>
+    <section class="player" aria-label="播放控制">
+      <div><p id="status" role="status" aria-live="polite">正在准备 5 段声音…</p><p id="draw" class="draw">点击后才播放，不会自动播放或循环。</p></div>
+      <button id="stop" disabled>停止 <kbd>Esc</kbd></button>
+      <button id="retry" hidden>重新准备声音</button>
+    </section>
+    <p class="note">本组样音：中文女声一 · 1.15 倍，固定样音不随设备设置改变。</p>
+    <p class="note">可以重点听：鸭叫是否太突然、前后衔接是否自然、多听几次是否烦扰。随机出现不代表每几次一定会叫；听感需要你来判断。</p>
+    <footer>
+      <span id="credit-qubodup">鸭叫素材：<a href="https://freesound.org/people/qubodup/sounds/442820/" target="_blank" rel="noopener noreferrer">Duck Quack · qubodup</a>，改编自 <a href="https://freesound.org/people/dobroide/sounds/185134/" target="_blank" rel="noopener noreferrer">20130403_duck.04.wav · dobroide</a>，采用 <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noopener noreferrer">CC BY 4.0</a>。本页做了重采样、柔化高频、淡入淡出、降音量及与人声拼接，保留完整叫声。</span>
+      <span id="credit-original" hidden>鸭叫素材：<a href="https://freesound.org/people/OwennewO/sounds/719105/" target="_blank" rel="noopener noreferrer">Soft Duck Quack · OwennewO · Freesound</a>，CC0。</span>
+      此页仅使用预先准备的音频，不调用麦克风或对话 AI。
+    </footer>
+  </main>
+</body>
+</html>

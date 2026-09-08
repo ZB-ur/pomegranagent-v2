@@ -1,0 +1,16 @@
+{
+  "title": "Duck Quack",
+  "author": "qubodup",
+  "source": "https://freesound.org/people/qubodup/sounds/442820/",
+  "preview": "https://cdn.freesound.org/previews/442/442820_71257-hq.mp3",
+  "license": "CC BY 4.0 (current source page; description also permits CC BY 3.0 or later)",
+  "license_url": "https://creativecommons.org/licenses/by/4.0/",
+  "original_title": "20130403_duck.04.wav",
+  "original_author": "dobroide",
+  "original_source": "https://freesound.org/people/dobroide/sounds/185134/",
+  "source_sha256": "f205093adeaef2cf0c395ecb5a2eb0d4f903a306564bb60b510c9c942b3df1e2",
+  "duck_seconds": 1.1304583333333333,
+  "voice": "../voice.wav",
+  "join_gap_ms": 90,
+  "processing": "24 kHz mono PCM; DC removal; two gentle 3600 Hz low-pass stages; 8 ms edge fades; gain capped at -12 dBFS peak and speech RMS minus 5 dB; softer variant another -4 dB; original call timing preserved."
+}

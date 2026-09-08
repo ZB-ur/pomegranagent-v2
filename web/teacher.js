@@ -1,4 +1,5 @@
 import {cropPhoto} from './crop.mjs';
+import {matchesChildName} from './name-search.mjs';
 import {STORE_KEY,RECORDS_KEY,DRAFT_KEY,escape as esc,dateKey,asDate,shiftDay,read,loadData,saveData,rosterFor,personAvatar,recordDate,write,refresh,api} from './store.mjs';
 const $ = selector => document.querySelector(selector);
 let data = loadData();
@@ -6,6 +7,7 @@ const today = dateKey();
 let selectedDate = today, month = today.slice(0,7), selectedIds = [], dirty = false;
 let view = '', search = '', showArchived = false, recordChild = '', recordFilter = 'all', recordDay = '';
 let toastTimer, dialogReturnFocus;
+let daySearch = '';
 const names = {schedule:'排班日历',children:'幼儿管理',ducks:'小鸭管理',records:'故事记录'};
 const dateText = value => asDate(value).toLocaleDateString('zh-CN',{month:'long',day:'numeric',weekday:'long'});
 const records = () => read(RECORDS_KEY,[]);
@@ -30,7 +32,7 @@ function pageHead(title,description,action='') {
   return `<div class="page-head"><div><p class="eyebrow">LITTLE MOMENTS, WELL KEPT</p><h1>${title}</h1><p class="subline">${description}</p></div>${action}</div>`;
 }
 function dayIds(date) { return rosterFor(data,date).map(c=>c.id); }
-function loadDay(date) { selectedDate=date; month=date.slice(0,7); selectedIds=dayIds(date); dirty=false; }
+function loadDay(date) { selectedDate=date; month=date.slice(0,7); selectedIds=dayIds(date); dirty=false; daySearch=''; }
 loadDay(today);
 function confirmDiscard(callback) {
   if (!dirty) { callback(); return; }
@@ -85,7 +87,7 @@ function schedulePage(){
 }
 function dayEditor(){
   const d=asDate(selectedDate);
-  return `<p class="eyebrow">${selectedDate===today?'TODAY · 今天':'DAY PLAN · 当天安排'}</p><h2 class="date-big">${d.getMonth()+1} 月 ${d.getDate()} 日<small>${d.toLocaleDateString('zh-CN',{weekday:'long'})}</small></h2><span id="save-state" class="saved-label ${dirty?'unsaved':''}">${dirty?'有修改，尚未保存':'已保存的安排'}</span><div class="row spread label"><span>选择当天的幼儿</span><span id="selected-count">已选 ${selectedIds.length} 位</span></div><div class="child-picker">${activeChildren().map(c=>`<label class="pick-child">${personAvatar(c)}<span><strong>${esc(c.name)}</strong><small>${esc(c.fullName||c.name)}</small></span><input type="checkbox" value="${esc(c.id)}" ${selectedIds.includes(c.id)?'checked':''} aria-label="安排${esc(c.name)}"></label>`).join('')||'<p class="subline">先到幼儿管理添加一位孩子。</p>'}</div><button class="button primary wide" id="save-day" ${dirty?'':'disabled'}>保存当天安排</button><button class="button subtle wide" id="copy-previous">沿用上周${d.toLocaleDateString('zh-CN',{weekday:'long'}).replace('星期','周').replace('周','')}的名单</button>`;
+  return `<p class="eyebrow">${selectedDate===today?'TODAY · 今天':'DAY PLAN · 当天安排'}</p><h2 class="date-big">${d.getMonth()+1} 月 ${d.getDate()} 日<small>${d.toLocaleDateString('zh-CN',{weekday:'long'})}</small></h2><span id="save-state" class="saved-label ${dirty?'unsaved':''}">${dirty?'有修改，尚未保存':'已保存的安排'}</span><div class="row spread label"><span>选择当天的幼儿</span><span id="selected-count">全部已选 ${selectedIds.length} 位</span></div><div class="day-search-row"><label class="sr-only" for="day-child-search">搜索幼儿姓名、小名或拼音首字母</label><input id="day-child-search" type="search" placeholder="姓名 / 小名 / 拼音首字母" value="${esc(daySearch)}" autocomplete="off" aria-describedby="day-search-hint day-match-count"><button type="button" class="button compact" id="clear-day-search" ${daySearch?'':'hidden'}>清空</button></div><p id="day-search-hint" class="day-search-hint">如“小禾”可输入 XH；筛选不改变已选名单。</p><p id="day-match-count" class="day-match-count" role="status" aria-live="polite"></p><div class="child-picker">${activeChildren().map(c=>`<label class="pick-child" data-pick-child="${esc(c.id)}">${personAvatar(c)}<span><strong>${esc(c.name)}</strong><small>${esc(c.fullName||c.name)}</small></span><input type="checkbox" value="${esc(c.id)}" ${selectedIds.includes(c.id)?'checked':''} aria-label="安排${esc(c.name)}"></label>`).join('')||'<p class="subline">先到幼儿管理添加一位孩子。</p>'}</div><p id="day-search-empty" class="day-search-empty" hidden>没有找到这位幼儿，试试中文姓名，或清空搜索查看全部。</p><button class="button primary wide" id="save-day" ${dirty?'':'disabled'}>保存当天安排</button><button class="button subtle wide" id="copy-previous">沿用上周${d.toLocaleDateString('zh-CN',{weekday:'long'}).replace('星期','周').replace('周','')}的名单</button>`;
 }
 function duckArt(d){
   if(d.photo)return `<img src="${esc(d.photo)}" alt="${esc(d.name)}的照片">`;
@@ -99,7 +101,7 @@ function profilesPage(kind){
 }
 function recordsPage(){
   const list=records().filter(r=>(!recordDay||recordDate(r)===recordDay)&&(!recordChild||r.child?.id===recordChild)&&(recordFilter==='all'||(recordFilter==='pending'?!r.reviewedAt:Boolean(r.reviewedAt))));
-  return `${pageHead('把小小的发现，好好收藏。','对照原话核对记录，让孩子的故事保持孩子自己的样子。')}<div class="records-toolbar"><input id="record-day" type="date" aria-label="按日期查找记录" value="${recordDay}"><button class="button" id="clear-date">全部日期</button><button class="button" id="export-records">导出当前记录</button><select id="record-child" aria-label="按幼儿筛选"><option value="">全部幼儿</option>${data.children.map(c=>`<option value="${esc(c.id)}" ${recordChild===c.id?'selected':''}>${esc(c.name)}</option>`).join('')}</select><select id="record-filter" aria-label="核对状态"><option value="all" ${recordFilter==='all'?'selected':''}>全部记录</option><option value="pending" ${recordFilter==='pending'?'selected':''}>待核对</option><option value="reviewed" ${recordFilter==='reviewed'?'selected':''}>已核对</option></select></div>${list.map(r=>`<article class="panel record-card"><div class="row">${r.child?personAvatar(r.child):''}<h3>${esc(r.child?.name||'旧版示例')}的小故事</h3><span class="status ${r.reviewedAt?'done':''}">${r.reviewedAt?'已核对':'待核对'}</span></div><p>${esc(r.text)}</p><div class="row spread"><span class="record-meta">${dateText(recordDate(r))}</span><button class="button" data-review="${esc(r.id)}">${r.reviewedAt?'查看与修改':'核对原话'}</button></div></article>`).join('')||(records().length?'<div class="panel empty">当前筛选没有匹配的故事。<br>可以调整日期、幼儿或核对状态，查看已保存的记录。</div>':'<div class="panel empty"><span class="empty-icon">▤</span>这里还没有故事。<br>在儿童端完成一次交流并保存，就能回到这里核对。<br><a class="button primary" href="index.html?roster=today">去儿童端体验 ↗</a></div>')}`;
+  return `${pageHead('把小小的发现，好好收藏。','对照原话核对记录，让孩子的故事保持孩子自己的样子。')}<div class="records-toolbar"><input id="record-day" type="date" aria-label="按日期查找记录" value="${recordDay}"><button class="button" id="clear-date">全部日期</button><button class="button" id="export-records">导出当前记录</button><select id="record-child" aria-label="按幼儿筛选"><option value="">全部幼儿</option>${data.children.map(c=>`<option value="${esc(c.id)}" ${recordChild===c.id?'selected':''}>${esc(c.name)}</option>`).join('')}</select><select id="record-filter" aria-label="核对状态"><option value="all" ${recordFilter==='all'?'selected':''}>全部记录</option><option value="pending" ${recordFilter==='pending'?'selected':''}>待核对</option><option value="reviewed" ${recordFilter==='reviewed'?'selected':''}>已核对</option></select></div>${list.map(r=>`<article class="panel record-card"><div class="row">${r.child?personAvatar(r.child):''}<h3>${esc(r.child?.name||'旧版示例')}的小故事</h3><span class="status ${r.reviewedAt?'done':''}">${r.reviewedAt?'已核对':'待核对'}</span></div>${r.summaryFallback&&!r.reviewedAt?'<p class="subline">自动整理未完成，已保留识别原文，请老师核对。</p>':''}<p>${esc(r.text)}</p><div class="row spread"><span class="record-meta">${dateText(recordDate(r))}</span><button class="button" data-review="${esc(r.id)}">${r.reviewedAt?'查看与修改':'核对原话'}</button></div></article>`).join('')||(records().length?'<div class="panel empty">当前筛选没有匹配的故事。<br>可以调整日期、幼儿或核对状态，查看已保存的记录。</div>':'<div class="panel empty"><span class="empty-icon">▤</span>这里还没有故事。<br>在儿童端完成一次交流并保存，就能回到这里核对。<br><a class="button primary" href="index.html?roster=today">去儿童端体验 ↗</a></div>')}`;
 }
 function bindView(){
   document.querySelectorAll('[data-review]').forEach(b=>b.onclick=()=>editRecord(b.dataset.review));
@@ -109,13 +111,21 @@ function bindView(){
       b.onkeydown=e=>{
         const deltas={ArrowLeft:-1,ArrowRight:1,ArrowUp:-7,ArrowDown:7};
         if(e.key in deltas){e.preventDefault();confirmDiscard(()=>{loadDay(shiftDay(b.dataset.date,deltas[e.key]));render();$(`[data-date="${selectedDate}"]`)?.focus();});}
-        if(e.key==='Enter'){e.preventDefault();$('.pick-child input')?.focus();}
+        if(e.key==='Enter'){e.preventDefault();$('#day-child-search')?.focus();}
       };
     });
     $('#prev-month').onclick=()=>changeMonth(-1);$('#next-month').onclick=()=>changeMonth(1);
     $('#back-today').onclick=()=>confirmDiscard(()=>{loadDay(today);render();});
     $('#jump-date').onchange=e=>{const date=e.target.value;if(date)confirmDiscard(()=>{loadDay(date);render();});};
-    $('.child-picker').onchange=()=>{selectedIds=[...document.querySelectorAll('.pick-child input:checked')].map(i=>i.value);markDirty();};
+    $('.child-picker').onchange=()=>{selectedIds=[...document.querySelectorAll('.pick-child input:checked')].map(i=>i.value);markDirty();filterDayChildren(false);};
+    $('#day-child-search').oninput=e=>{daySearch=e.target.value;filterDayChildren();};
+    $('#day-child-search').onkeydown=e=>{
+      if(e.isComposing)return;
+      if(e.key==='Escape'&&daySearch){e.preventDefault();clearDaySearch();}
+      if(e.key==='Enter'){e.preventDefault();$('.pick-child:not([hidden]) input')?.focus();}
+    };
+    $('#clear-day-search').onclick=clearDaySearch;
+    filterDayChildren();
     $('#save-day').onclick=()=>saveDay();
     $('#copy-previous').onclick=()=>{selectedIds=dayIds(shiftDay(selectedDate,-7));dirty=JSON.stringify(selectedIds)!==JSON.stringify(dayIds(selectedDate));render();notify(selectedIds.length?'已带入上周名单，检查后保存。':'上周这天没有安排，可直接勾选幼儿。');};
     $('#copy-week').onclick=copyWeekDialog;
@@ -134,10 +144,36 @@ function bindView(){
     $('#record-filter').onchange=e=>{recordFilter=e.target.value;render();};
   }
 }
-function markDirty(){dirty=JSON.stringify([...selectedIds].sort())!==JSON.stringify([...dayIds(selectedDate)].sort());$('#save-day').disabled=!dirty;$('#selected-count').textContent=`已选 ${selectedIds.length} 位`;$('#save-state').textContent=dirty?'有修改，尚未保存':'已保存的安排';$('#save-state').classList.toggle('unsaved',dirty);}
+function clearDaySearch(){daySearch='';$('#day-child-search').value='';filterDayChildren();$('#day-child-search').focus();}
+function filterDayChildren(resetScroll=true){
+  const children=activeChildren(), visible=new Set(children.filter(c=>matchesChildName(c,daySearch)).map(c=>c.id));
+  document.querySelectorAll('[data-pick-child]').forEach(row=>{row.hidden=!visible.has(row.dataset.pickChild);});
+  const hiddenSelected=selectedIds.filter(id=>!visible.has(id)).length;
+  $('#day-match-count').textContent=daySearch.trim()?`匹配 ${visible.size} / ${children.length} 位${hiddenSelected?` · 另有 ${hiddenSelected} 位已选未显示`:''}`:`全部 ${children.length} 位幼儿`;
+  $('#day-search-empty').hidden=visible.size>0||children.length===0;
+  $('#clear-day-search').hidden=!daySearch;
+  if(resetScroll)$('.child-picker').scrollTop=0;
+}
+function markDirty(){dirty=JSON.stringify([...selectedIds].sort())!==JSON.stringify([...dayIds(selectedDate)].sort());$('#save-day').disabled=!dirty;$('#selected-count').textContent=`全部已选 ${selectedIds.length} 位`;$('#save-state').textContent=dirty?'有修改，尚未保存':'已保存的安排';$('#save-state').classList.toggle('unsaved',dirty);}
 function changeMonth(delta){confirmDiscard(()=>{const d=asDate(`${month}-01`);d.setMonth(d.getMonth()+delta);loadDay(dateKey(d));render();});}
-function openDialog(html){dialogReturnFocus=document.activeElement;const dialog=$('#editor-dialog');dialog.innerHTML=html;if(!dialog.open)dialog.showModal();}
-function closeDialog(){ if(persisting)return;$('#editor-dialog').close();dialogReturnFocus?.focus(); }
+let editorBaseline="";
+function editorSignature(){const form=$("#profile-form")||$("#review-form");return form?JSON.stringify([...form.querySelectorAll("input:not([type=file]),textarea,select")].map(e=>[e.name||e.id,e.value,e.checked]))+($("#profile-photo")?.innerHTML||""):"";}
+const editorDirty=()=>$('#editor-dialog').open&&editorSignature()!==editorBaseline;
+function openDialog(html){dialogReturnFocus=document.activeElement;const dialog=$('#editor-dialog');dialog.innerHTML=html;editorBaseline=editorSignature();if(!dialog.open)dialog.showModal();}
+function closeDialog(force=false){
+  if(persisting)return;
+  if(force!==true&&editorDirty()){
+    if($('#unsaved-dialog'))return;
+    const prompt=document.createElement('dialog');prompt.id='unsaved-dialog';prompt.setAttribute('aria-labelledby','unsaved-title');
+    prompt.innerHTML='<h2 id="unsaved-title">修改还没有保存</h2><p class="subline">关闭会丢失这次修改。要先保存吗？</p><div class="dialog-actions"><button id="keep-editing" class="button">继续编辑</button><button id="discard-editor" class="button danger">放弃修改</button><button id="save-editor" class="button primary">保存并关闭</button></div>';
+    document.body.append(prompt);const dismiss=()=>{prompt.close();prompt.remove();};
+    prompt.addEventListener('cancel',e=>{e.preventDefault();dismiss();});
+    $('#keep-editing').onclick=dismiss;$('#discard-editor').onclick=()=>{dismiss();closeDialog(true);};
+    $('#save-editor').onclick=()=>{dismiss();($('#profile-form')||$('#review-form'))?.requestSubmit();};
+    prompt.showModal();$('#keep-editing').focus();return;
+  }
+  $('#editor-dialog').close();editorBaseline='';dialogReturnFocus?.focus();
+}
 function copyWeekDialog(){
   confirmDiscard(()=>{
     const weekStart=shiftDay(selectedDate,-((asDate(selectedDate).getDay()+6)%7));
@@ -166,14 +202,14 @@ function editProfile(kind,id){
     let url;try{url=await cropPhoto(file);}catch(error){if($('#profile-form')===profileForm)$('#profile-error').textContent=error.message;return;}if(!url)return;
     if($('#profile-form')!==profileForm)return;p.photo=url;$('#remove-photo').disabled=false;$('#profile-error').textContent='';$('#profile-photo').innerHTML=isChild?personAvatar(p):`<div class="duck-portrait" style="width:90px;height:90px;margin:0">${duckArt(p)}</div>`;
   };
-  $('#profile-form').onsubmit=async e=>{e.preventDefault();const fields=new FormData(e.target);p.name=fields.get('name').trim();p.note=fields.get('note').trim();if(isChild)p.fullName=fields.get('fullName').trim();if(isChild&&!p.photo){$('#profile-error').textContent='请先上传并裁切一张清晰头像，让孩子不用认字也能找到自己。';return;}if(!p.name||(isChild&&!p.fullName)){$('#profile-error').textContent='请填好姓名或名字。';return;}const next=structuredClone(data),index=next[kind].findIndex(c=>c.id===p.id);if(index<0)next[kind].push(p);else next[kind][index]=p;if(!await persist(next))return;closeDialog();render();notify(`${p.name}的资料已保存。`);};
+  $('#profile-form').onsubmit=async e=>{e.preventDefault();const fields=new FormData(e.target);p.name=fields.get('name').trim();p.note=fields.get('note').trim();if(isChild)p.fullName=fields.get('fullName').trim();if(isChild&&!p.photo){$('#profile-error').textContent='请先上传并裁切一张清晰头像，让孩子不用认字也能找到自己。';return;}if(!p.name||(isChild&&!p.fullName)){$('#profile-error').textContent='请填好姓名或名字。';return;}const next=structuredClone(data),index=next[kind].findIndex(c=>c.id===p.id);if(index<0)next[kind].push(p);else next[kind][index]=p;if(!await persist(next))return;closeDialog(true);render();notify(`${p.name}的资料已保存。`);};
   if(id)$('#archive-profile').onclick=()=>{
     if(p.active){
       $('#profile-error').innerHTML=`归档后将不再出现在新的${isChild?'排班选择和儿童入口':'小鸭选择'}中，已有记录保留。<button type="button" class="button danger" id="confirm-archive" style="margin-top:10px">确认归档${esc(p.name)}</button>`;
       $('#confirm-archive').onclick=()=>setActive(false);
     }else setActive(true);
   };
-  async function setActive(active){const next=structuredClone(data);next[kind].find(c=>c.id===id).active=active;if(!await persist(next))return;selectedIds=dayIds(selectedDate);closeDialog();render();notify(`${p.name}已${active?'恢复':'归档'}，历史记录保留。`);}
+  async function setActive(active){const next=structuredClone(data);next[kind].find(c=>c.id===id).active=active;if(!await persist(next))return;selectedIds=dayIds(selectedDate);closeDialog(true);render();notify(`${p.name}已${active?'恢复':'归档'}，历史记录保留。`);}
 }
 function editRecord(id){
   const r=records().find(r=>r.id===id);if(!r)return;
@@ -193,15 +229,15 @@ function editRecord(id){
     try{await write(RECORDS_KEY,next);saved=true;}
     catch(error){$('#review-error').textContent=error.message||'没有保存成功，请先复制修改后的内容。';}
     finally{persisting=false;form.inert=false;}
-    if(saved){closeDialog();render();notify('记录已保存，并标记为已核对。');}
+    if(saved){closeDialog(true);render();notify('记录已保存，并标记为已核对。');}
     else form.querySelector('[type="submit"]').focus();
   };
 }
 document.querySelectorAll('nav a,.brand,#child-entry').forEach(a=>a.addEventListener('click',e=>{if(dirty){e.preventDefault();const href=a.getAttribute('href');confirmDiscard(()=>location.href=href);}}));
 window.addEventListener('hashchange',()=>{search='';showArchived=false;if(dirty){const desired=location.hash;history.replaceState(null,'',`#${view}`);confirmDiscard(()=>{loadDay(selectedDate);location.hash=desired;});return;}loadDay(selectedDate);render();});
-window.addEventListener('beforeunload',e=>{if(dirty||persisting){e.preventDefault();e.returnValue='';}});
+window.addEventListener('beforeunload',e=>{if(dirty||persisting||editorDirty()){e.preventDefault();e.returnValue='';}});
 window.addEventListener('storage',e=>{if([STORE_KEY,RECORDS_KEY,DRAFT_KEY].includes(e.key)&&!dirty&&!$('#editor-dialog').open){data=loadData();loadDay(selectedDate);render();}});
-$('#editor-dialog').addEventListener('cancel',event=>{if(persisting)event.preventDefault();});
+$('#editor-dialog').addEventListener('cancel',event=>{event.preventDefault();if(!persisting)closeDialog();});
 render();
 
 window.addEventListener('focus',async()=>{

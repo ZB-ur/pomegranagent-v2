@@ -1,0 +1,13 @@
+{
+  "voice": "zf_001",
+  "speechRate": 1.15,
+  "text": "你给小鸭添了水，谢谢你把这件事讲给我听。",
+  "source": "https://freesound.org/people/OwennewO/sounds/719105/",
+  "preview": "https://cdn.freesound.org/previews/719/719105_11244040-hq.mp3",
+  "source_sha256": "5b43a90e3c4c40cc065507ea1b5f22f430af823227e047f597d9e372e81e18cf",
+  "source_license": "CC0 1.0",
+  "duck_seconds": 0.21358333333333332,
+  "join_gap_ms": 90,
+  "soft_relative_rms_db": -5,
+  "softer_relative_rms_db": -9
+}
