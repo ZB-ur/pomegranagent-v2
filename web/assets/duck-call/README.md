@@ -1,4 +1,4 @@
-# Duck Quack audition variant
+# Duck Quack · production audio
 
 **Duck Quack**, by **qubodup** (2018-10-12):
 https://freesound.org/people/qubodup/sounds/442820/
@@ -15,9 +15,9 @@ No endorsement by either author is implied.
 We used the publicly embedded HQ MP3 preview, not the login-only original.
 Our modifications: mono 24 kHz / 16-bit PCM conversion, DC removal, gentle
 high-frequency softening, 8 ms fades, attenuation to speech RMS minus 5 dB
-with a -12 dBFS peak cap, and a second variant another 4 dB quieter.
-The full call and its timing are preserved. Prefix/suffix versions join the
-call to the existing fictional Kokoro sentence with 90 ms separation.
+with a -12 dBFS peak cap. This directory contains only the approved soft level;
+the quieter alternative and fixed-sentence examples stay in the audition
+directory. The full call and its timing are preserved.
 See provenance.json for source URL, hash and processing details.
 
 Used in the child UI. prefix.wav / suffix.wav contain the approved soft call

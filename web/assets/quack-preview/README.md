@@ -17,5 +17,6 @@ a 90 ms separation. They are complete pre-rendered clips, not recordings of a
 live child conversation. Current voice/rate and source hash are in
 `provenance.json`.
 
-These clips are for the separate audition page only. Listening approval and
-target-device checks are still required before adopting them in the child UI.
+These OwennewO clips remain historical audition samples. The user selected the
+qubodup soft variant on 2026-09-09; production audio and its attribution are in
+[../duck-call/](../duck-call/README.md). The audition page retains both sources.

@@ -20,4 +20,7 @@ The full call and its timing are preserved. Prefix/suffix versions join the
 call to the existing fictional Kokoro sentence with 90 ms separation.
 See provenance.json for source URL, hash and processing details.
 
-For the independent audition page only; not yet used in the child UI.
+These complete, fixed-sentence clips are for the independent audition page.
+The user approved this soft call on 2026-09-09. The child UI uses separate cue
+files plus dynamically synthesized speech; see
+[production audio](../../duck-call/README.md).

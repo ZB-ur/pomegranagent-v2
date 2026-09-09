@@ -4,9 +4,10 @@
 
 - 参考：V1 `docs/design/reference/duck-ip/duck-ip-front-cutout.png` 和对应 README。
 - 保留的特征：白鸭、黑色大圆框眼镜、橙嘴与脚、暖黄色日记本及封面小鸭/铅笔。
-- 新素材：`prototype/assets/duck-storybook-poses.png`，使用内置 imagegen 生成。V1 参考图未修改。
+- 图像由内置 imagegen 生成；正式应用使用 [`web/assets/duck-storybook-poses.png`](../web/assets/duck-storybook-poses.png)，原型副本保留在 `prototype/assets/duck-storybook-poses.png`。V1 参考图未修改。
 - 四个姿态依次为：安静抱本、侧耳倾听、开口回应、开心举翅。
-- 采用 CSS 裁切姿态和轻微身体动作，语音播放事件控制回应姿态，输入状态控制倾听姿态，保存结果控制庆祝。不是音素级口型同步。
+- 采用 CSS 裁切姿态和轻微身体动作，语音播放事件控制回应姿态，输入状态控制倾听姿态，收尾及保存结果控制开心姿态。不是音素级口型同步。
+- 正式应用在句间缓冲时保留回应姿态、暂停说话动作；短暂播放交接延迟 180 毫秒再收回姿态，避免瞬间切图。更新每段文字不重建小鸭节点。尊重系统减少动态效果设置。
 - 最终图为不透明暖色底，页面以 multiply 混合显示；没有把绘制的棋盘格当作透明背景。第一张生成稿存在棋盘格，未用于应用。
 
 ## 原始绘制提示
@@ -17,11 +18,19 @@ Create a new original 2D children's picture-book mascot SPRITE SHEET using the a
 
 Edit this sprite sheet. Preserve the SAME four duck characters and four poses, their details and watercolor pencil style. Replace ALL checkerboard pixels with a perfectly FLAT uniform warm ivory background, exactly sRGB hex #FFF6E8; no texture, gradient, shadows or checkerboard anywhere behind the characters. Tighter vertical framing: each full duck including crest and feet occupies 85% of image height, with equal top and bottom padding. All four character centers at exactly 12.5%,37.5%,62.5%,87.5% of image width. Four equal-width cells in one horizontal row, no dividers, no overlap. Wide 3:1 aspect ratio image. All characters the same size and same feet baseline. Do not change identity, poses, notebook graphics or glasses. No text, no watermark.
 
-## 语音实现参考
+## 正式应用的声音
 
-- [MDN SpeechRecognition](https://developer.mozilla.org/en-US/docs/Web/API/SpeechRecognition)：浏览器识别接口及兼容性、服务限制。
-- [MDN getVoices](https://developer.mozilla.org/en-US/docs/Web/API/SpeechSynthesis/getVoices)：读取当前设备可用的语音。
-- [MDN voiceschanged](https://developer.mozilla.org/en-US/docs/Web/API/SpeechSynthesis/voiceschanged_event)：声音列表可在加载后更新；每次播音重新选择中文声音。
+正式应用由浏览器录音、本地 SenseVoice Small 识别、DeepSeek 接话、本地 Kokoro v1.1 zh 合成中文声音。教师可选择声音和 0.85–1.25 倍语速（五档，默认 1.05 倍）。原型使用的浏览器识别及 `speechSynthesis` 仅保留为历史实现，不是正式听说服务。
+
+AI 回应中的鼓励应具体对应孩子实际表达的观察或行动，不编造事实，不做能力评分。鸭鸭的角色感由形象、动作和柔和预录鸭叫共同表达，不要求模型在每句话添加“嘎／嘎嘎”。
+
+- 用户选定的声音为 qubodup 的 [Duck Quack](https://freesound.org/people/qubodup/sounds/442820/)，源自 dobroide 的录音；采用柔化、降低音量后的版本。作者署名、CC BY 4.0 授权和处理说明见 [素材说明](../web/assets/duck-call/README.md)。
+- 每条 AI 回复独立按 35% 概率添加一次鸭叫；触发后以相等概率放在回复开头或末尾，其余 65% 只播正文。不是每句添加，也不保证若干轮内一定出现。
+- 鸭叫作为本地音频插入播放队列，与正文连接处保留 90 毫秒间隔；正文仍动态合成，不用预录回应替代真实 AI。
+- 同一页面内重听同一条回复保持相同选择；固定操作提示与故事朗读不加鸭叫，记录不增加鸭叫文字。
+- 对比试听页保留在 [`web/quack-preview.html`](../web/quack-preview.html)，只使用固定虚构句子比较音色，不代表真实 AI 对话验收。
+
+2026-09-09，用户确认所选柔和鸭叫并验收当前版本。该确认不扩展为未有独立证据的 Windows 或其他设备验收；分别验收结果见 [README](../README.md)。
 
 ## 幼儿示例头像
 
