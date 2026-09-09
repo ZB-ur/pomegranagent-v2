@@ -35,14 +35,9 @@ main { padding: 0 42px 24px; min-height: calc(100dvh - 178px); outline: none; }
 .duck-shadow { position: absolute; width: 48%; height: 12px; left: 26%; bottom: 7%; background: #e7c58b29; filter: blur(5px); border-radius: 50%; z-index: -1; }
 .sound-tag { position: absolute; right: 1%; top: 46%; display: grid; place-items: center; width: 46px; height: 46px; border: 1px solid #e5ccaa; background: #fffbf4; color: #ad663f; border-radius: 50%; box-shadow: 0 4px 12px #8958280a; }
 .sound-tag svg { width: 22px; height: 22px; }
-.mascot[data-mood='listening'] .duck-sprite { background-position: 31.5% center; animation: listen 3.6s ease-in-out infinite; }
-.mascot[data-mood='speaking'] .duck-sprite { background-position: 65% center; animation: speak .65s ease-in-out infinite; }
-.mascot[data-mood='happy'] .duck-sprite { background-position: 98% center; animation: celebrate 1.2s ease-out 2, breathe 4s 2.4s ease-in-out infinite; }
 .mascot[data-mood='listening'] .mascot-glow { animation: glow 3s ease-in-out infinite; }
 .mascot[data-mood='speaking'] .sound-tag { background: #f9dfb2; }
-.mascot[data-mood='speaking'][data-voice-paused='true'] .duck-sprite { animation-play-state: paused; }
 .mascot:disabled { opacity: 1; }
-.mascot[data-mood='thinking'] .duck-sprite { animation: listen 3s ease-in-out infinite; }
 .mascot[data-mood='thinking'] .mascot-glow { animation: glow 2s ease-in-out infinite; }
 .status-pill.waiting > span { width: 12px; height: 12px; background: transparent; border: 2px solid #d6b996; border-top-color: #8d684c; animation: waiting-spin 1s linear infinite; }
 @keyframes waiting-spin { to { transform: rotate(360deg); } }
@@ -239,3 +234,40 @@ summary { font-size: 14px; cursor: pointer; color: #8a6e50; min-height: 26px; }
 #exit-dialog::backdrop{background:#34291870}#exit-dialog p{line-height:1.8;margin:18px 0}#exit-dialog button{padding:12px;margin:6px;border:1px solid #bba787;border-radius:10px;background:#f5ecd9}#exit-dialog button:focus-visible{outline:3px solid #a7643c}
 
 .finish-countdown{position:relative;overflow:hidden;min-width:280px;margin-top:24px;isolation:isolate}.finish-countdown.counting{box-shadow:0 0 0 6px #edcf9455}.finish-countdown.counting::before{content:'';position:absolute;inset:0;background:#e2b75566;transform-origin:left;animation:fill-notebook 3s linear forwards;z-index:-1}.countdown-number{margin-left:18px;min-width:32px;border-radius:50%;background:#ffffff33;padding:3px}@keyframes fill-notebook{from{transform:scaleX(0)}to{transform:scaleX(1)}}@media(prefers-reduced-motion:reduce){.finish-countdown.counting::before{animation:none;transform:scaleX(1)}}
+
+/* Keep all pose layers mounted; preload before crossfading away from the original IP. */
+.duck-pose{position:absolute;inset:0;display:block;background:center/110% auto no-repeat;mix-blend-mode:multiply;opacity:0;transition:opacity .18s ease;pointer-events:none;transform-origin:50% 80%}
+.pose-listening{background-image:url('assets/duck-poses/listening.png');animation:listen 3.6s ease-in-out infinite}
+.pose-acknowledging{background-image:url('assets/duck-poses/acknowledging.png');animation:duck-nod .65s ease-in-out}
+.pose-writing{background-image:url('assets/duck-poses/writing.png');animation:duck-write 2.6s ease-in-out infinite}
+.pose-inviting{background-image:url('assets/duck-poses/inviting.png');animation:breathe 4s ease-in-out infinite}
+.mascot[data-poses-ready='true']:is([data-mood='listening'],[data-mood='acknowledging'],[data-mood='writing'],[data-mood='inviting']) .duck-sprite{opacity:0}
+.mascot[data-poses-ready='true'][data-mood='listening'] .pose-listening,.mascot[data-poses-ready='true'][data-mood='acknowledging'] .pose-acknowledging,.mascot[data-poses-ready='true'][data-mood='writing'] .pose-writing,.mascot[data-poses-ready='true'][data-mood='inviting'] .pose-inviting{opacity:1}
+.mascot[data-mood='writing'] .mascot-glow{animation:glow 3s ease-in-out infinite}
+@keyframes duck-nod{50%{transform:translateY(3px) rotate(1deg)}}
+@keyframes duck-write{50%{transform:rotate(-.6deg) translateY(2px)}}
+#help-dialog{max-width:520px;width:calc(100% - 40px);border:1px solid #c8b795;border-radius:18px;padding:28px;color:#4b3c2e;background:#fffaf0}
+#help-dialog::backdrop{background:#34291870}
+#help-dialog p{line-height:1.8;margin:18px 0}
+#help-dialog button{padding:12px;margin:6px;border:1px solid #bba787;border-radius:10px;background:#f5ecd9}
+#help-dialog button:focus-visible{outline:3px solid #a7643c}
+@media(min-width:800px) and (max-height:780px){.child-scene .mascot{width:370px}.child-scene{gap:40px}}
+@media(prefers-reduced-motion:reduce){.duck-pose{animation:none;transition:none}.duck-sprite{transition:none}}
+/* Leave the main actions visible when a reply contains two or three short sentences. */
+@media(min-width:800px) and (max-height:780px){h1.conversation-prompt{font-size:28px;line-height:1.55}}
+
+/* Every drawing owns a fixed frame, including while it fades out. Never move
+   the old sprite-sheet viewport at the start of an opacity transition. */
+.mascot .duck-sprite{opacity:0;transition:opacity .26s ease;animation:none}
+.mascot .sprite-idle{background-position:0% center;animation:breathe 4s ease-in-out infinite}
+.mascot .sprite-listening{background-position:31.5% center;animation:listen 3.6s ease-in-out infinite}
+.mascot .sprite-speaking{background-position:65% center;animation:speak .65s ease-in-out infinite}
+.mascot .sprite-happy{background-position:98% center;animation:breathe 4s ease-in-out infinite}
+.mascot[data-mood='speaking'] .sprite-speaking,.mascot[data-mood='happy'] .sprite-happy{opacity:1}
+.mascot[data-mood='idle'] .sprite-idle{opacity:1}
+.mascot:not([data-poses-ready='true'])[data-mood='listening'] .sprite-listening{opacity:1}
+.mascot:not([data-poses-ready='true']):is([data-mood='inviting'],[data-mood='writing'],[data-mood='acknowledging'],[data-mood='thinking']) .sprite-idle{opacity:1}
+.mascot .duck-pose{transition:opacity .26s ease}
+.mascot .duck-sprite,.mascot .duck-pose{animation-play-state:paused}
+.mascot[data-mood='idle'] .sprite-idle,.mascot[data-mood='speaking']:not([data-voice-paused='true']) .sprite-speaking,.mascot[data-mood='happy'] .sprite-happy,.mascot[data-mood='listening'] .sprite-listening,.mascot[data-mood='listening'] .pose-listening,.mascot[data-mood='writing'] .pose-writing,.mascot[data-mood='acknowledging'] .pose-acknowledging,.mascot[data-mood='inviting'] .pose-inviting{animation-play-state:running}
+@media(prefers-reduced-motion:reduce){.mascot .duck-sprite,.mascot .duck-pose{animation:none;transition:none}}

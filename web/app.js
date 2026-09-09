@@ -22,15 +22,16 @@ let replyPhase = '', replyError = false;
 let closingTimer, closingSeconds=3, closingStage='', closingError='', finishAfterInput=false;
 const closingCue='你的故事讲好啦，我帮你记下来。';
 const replyCalls = new Map();
-const continueCue=duckLine('想继续说，按空格。');
+let processingTimer, processingActive=false, processingAnnounced=false;
+let posesReady=false, pendingMood='', pendingMoodTimer;
 let operationController, operationEpoch=0, leaving=false, waitTimer, waitActive=false, exitAvailable=false;
-const interactionLocked = () => leaving || saving || ['conversation','closing'].includes(screen) && (aiPending || saving || capture==='stopping' || Boolean(replyPhase));
+const interactionLocked = () => leaving || saving || ['conversation','closing'].includes(screen) && (aiPending || saving || ['starting','stopping'].includes(capture) || Boolean(replyPhase));
 let liveText = draft?.pendingText ?? '';
 let prompt = draft?.turns.filter(turn => turn.role === 'assistant').at(-1)?.text ?? opening;
 let guide = '';
 let guideIsVerbatim = false;
-let speaking = false, voiceError='';
-let voiceVisualActive=false, voiceVisualTimer;
+let speaking = false, hintSpeaking=false, voiceError='';
+let voiceVisualActive=false, voiceVisualTimer, hintVisualActive=false, hintVisualTimer;
 
 let noticeTimer;
 let soundUnlocked = false;
@@ -150,26 +151,38 @@ function icon(name) {
   return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${paths[name]}</svg>`;
 }
 function mascot(state = 'idle', small = false) {
-  return `<button class="mascot ${small ? 'small' : ''}" data-mood="${state}" aria-label="听鸭鸭再说一遍"><span class="mascot-glow"></span><span class="duck-sprite"></span><span class="duck-shadow"></span><span class="sound-tag">${icon('sound')}</span></button>`;
+  return `<button class="mascot ${small ? 'small' : ''}" data-mood="${state}" data-poses-ready="${posesReady}" aria-label="听鸭鸭再说一遍"><span class="mascot-glow"></span>${["idle","listening","speaking","happy"].map(p=>`<span class="duck-sprite sprite-${p}" aria-hidden="true"></span>`).join('')}${["listening","acknowledging","writing","inviting"].map(p=>`<span class="duck-pose pose-${p}" aria-hidden="true"></span>`).join('')}<span class="duck-shadow"></span><span class="sound-tag">${icon('sound')}</span></button>`;
 }
 function mood() {
-  return voiceVisualActive ? 'speaking' : interactionLocked() ? 'thinking' : capture === 'listening' ? 'listening' : ['saved','closing'].includes(screen) ? 'happy' : 'idle';
+  return voiceVisualActive||hintVisualActive ? 'speaking' : capture === 'listening' ? 'listening' : capture==='starting' ? 'inviting' : replyPhase==='preparing'&&!prompt ? 'acknowledging' : interactionLocked() ? 'writing' : ['saved','closing'].includes(screen) ? 'happy' : screen==='conversation' ? 'inviting' : 'idle';
 }
-function refreshMood() {
+function refreshMood(settled=false) {
+  const requested=mood();
+  // Cached audio can leave preparation within one frame. Do not flash a pose
+  // that never had time to become a meaningful visible state.
+  const defer=!settled&&['writing','acknowledging'].includes(requested)&&document.querySelector('.mascot')?.dataset.mood!==requested;
+  if(defer){
+    if(pendingMood!==requested){clearTimeout(pendingMoodTimer);pendingMood=requested;pendingMoodTimer=setTimeout(()=>{if(mood()===requested)refreshMood(true);},220);}
+  }else{clearTimeout(pendingMoodTimer);pendingMood='';}
   document.querySelectorAll('.mascot').forEach(el => {
-    const next=mood();
+    const next=defer?el.dataset.mood:requested;
     if(el.dataset.mood!==next)console.debug('[duck] pose '+el.dataset.mood+' -> '+next);
-    el.dataset.mood=next;el.dataset.voicePaused=String(voiceVisualActive&&!speaking);
+    el.dataset.mood=next;el.dataset.posesReady=String(posesReady);el.dataset.voicePaused=String((voiceVisualActive||hintVisualActive)&&!speaking&&!hintSpeaking);
   });
-  $('#voice-status').textContent = voiceError || (replyPhase==='preparing'?'正在准备鸭鸭的声音':speaking ? '鸭鸭正在说话' : soundUnlocked ? '语音引导已开启' : '点小鸭，听语音引导');
+  $('#voice-status').textContent = voiceError || (replyPhase==='preparing'?'正在准备鸭鸭的声音':speaking||hintSpeaking ? '鸭鸭正在说话' : soundUnlocked ? '语音引导已开启' : '点小鸭，听语音引导');
 }
 class GuideSpeaker extends Speaker {
   speak(text,onDone,playback) { return super.speak(duckLine(text),onDone,playback); }
 }
-const recoveryVoice = new GuideSpeaker(()=>{},message=>notify(message));
+const recoveryVoice = new GuideSpeaker((value,detail)=>{
+  hintSpeaking=value;clearTimeout(hintVisualTimer);
+  if(value)hintVisualActive=true;
+  else if(detail?.phase!=='buffering')hintVisualTimer=setTimeout(()=>{hintVisualActive=false;refreshMood();},180);
+  refreshMood();
+},message=>notify(message));
 const speaker = new Speaker((value,detail)=>{
   speaking=value;clearTimeout(voiceVisualTimer);
-  if(value){voiceVisualActive=true;soundUnlocked=true;voiceError='';}
+  if(value){voiceVisualActive=true;stopProcessingHint();soundUnlocked=true;voiceError='';}
   else if(detail?.phase!=='buffering'){
     // Keep the same drawing across short sentence/closing-cue boundaries.
     voiceVisualTimer=setTimeout(()=>{voiceVisualActive=false;refreshMood();},180);
@@ -178,21 +191,48 @@ const speaker = new Speaker((value,detail)=>{
 },message=>{voiceError='声音未就绪 · 请老师帮忙';notify(message);$('#voice-status').textContent=voiceError;if(capture==='cue'){capture='idle';render();}});
 function silence(){speaker.stop();}
 function say(text,onDone,verbatim=false){guide=verbatim?text:duckLine(text);guideIsVerbatim=verbatim;if(capture==='listening')return;speaker.speak(guide,onDone);}
+function beginProcessingHint(){
+  if(processingActive)return;
+  processingActive=true;processingAnnounced=false;
+  processingTimer=setTimeout(()=>{
+    if(!processingActive||processingAnnounced||leaving||capture==='listening'||document.querySelector('dialog[open]'))return;
+    processingAnnounced=true;
+    recoveryVoice.speak('我在整理你刚才说的话。');
+  },5000);
+}
+function stopProcessingHint(){
+  clearTimeout(processingTimer);processingActive=false;processingAnnounced=false;
+  if(!document.querySelector('dialog[open]'))recoveryVoice.stop();
+}
+function openHelp(){
+  if(interactionLocked()||capture!=='idle'||screen==='closing')return;
+  silence();clearTimeout(focusTimer);
+  const help=screen==='roster'?'用方向键找到自己的头像，按回车，就是你啦。':screen==='conversation'?'按一下空格开始说，说完再按一下。想结束，选小本子。点我，或者按 F1，可以再听一遍。':screen==='history'?'用方向键选故事的小喇叭，按回车听故事。按 Escape 回去。':'按回车选下一位小朋友。按 F1，可以再听一遍。';
+  const dialog=document.createElement('dialog');dialog.id='help-dialog';dialog.setAttribute('aria-labelledby','help-title');
+  dialog.innerHTML=`<h2 id="help-title">怎么操作</h2><p>${escape(help)}</p><button id="repeat-help">再听一遍 · F1</button><button id="close-help">知道啦 · Esc</button>`;
+  document.body.append(dialog);dialog.showModal();$('#close-help').focus();recoveryVoice.speak(help);
+  const close=()=>{recoveryVoice.stop();dialog.close();dialog.remove();$('#help-button').focus();};
+  $('#repeat-help').onclick=()=>recoveryVoice.speak(help);$('#close-help').onclick=close;
+  dialog.addEventListener('cancel',event=>{event.preventDefault();close();});
+  dialog.addEventListener('keydown',event=>{if(event.key==='F1'){event.preventDefault();recoveryVoice.speak(help);}});
+}
+$('#help-button').onclick=openHelp;
 function stepGuide() {
   if (screen === 'roster' && !currentRoster().length) return '还没有安排小朋友，请老师先帮忙安排一下吧。';
-  if (screen === 'roster') return '今天轮到你们照顾小鸭啦。找到自己的头像，用方向键选一选，按回车就可以和我说话。';
+  if (screen === 'roster') return '找到自己的头像，来和我聊聊吧。';
   if(screen==='conversation'&&pendingAudio)return '你上次说的声音还在。请老师检查服务后，用方向键选重新听这段，再按回车。';
+  if(screen==='conversation'&&draft.aiError)return '你的话已经留好了，请鸭鸭接着说吧。';
   if(screen==='conversation'&&roundLimitReached())return draft.aiError?'你的话已经留好了。选请鸭鸭再接着说，听完我们就记故事。':`${prompt} 选小本子，我帮你记下来。`;
-  if (screen === 'conversation') return `${child.name}，你好呀。${prompt} 按一下空格键，开始说话。说完以后，再按一下。今天讲好了，用方向键选小本子，再按回车。`;
+  if (screen === 'conversation') return words().length ? prompt : `${child.name}，${opening}`;
   if (screen === 'closing') return closingError?'还没有记好，请老师帮忙，再试一次。':closingCue;
-  if (screen === 'saved') return `${child.name}，记好啦！按回车，回到大家的头像，让下一位小朋友来讲吧。`;
+  if (screen === 'saved') return '记好啦！请下一位小朋友来吧。';
   return '这里都是记下来的故事。点每段故事的小喇叭，就可以听。';
 }
 function go(next, announce = true) {
-  clearTimeout(focusTimer); clearInterval(closingTimer); silence(); screen = next; render();
+  clearTimeout(focusTimer); clearInterval(closingTimer); stopProcessingHint(); silence(); screen = next; render();
   const first = screen === 'roster' ? document.querySelectorAll('[data-child]')[rosterFocus] : screen === 'conversation' ? (roundLimitReached()?($('#retry-ai')??$('#finish-button')):$('#record-toggle')) : screen === 'closing' ? $('#finish-now') : screen === 'saved' ? $('#next-child') : $('#return-button');
   (first ?? $('#main')).focus({ preventScroll:true });
-  guide = stepGuide(); guideIsVerbatim=false; if (announce) say(guide);
+  clearTimeout(focusTimer);guide = stepGuide(); guideIsVerbatim=false; if (announce) say(guide);
 }
 async function start() {
   if (!child) { go('roster'); return; }
@@ -201,9 +241,11 @@ async function start() {
 }
 function transcript(turns) { return turns.map(turn => `<div class="transcript-line"><span>${turn.role === 'child' ? '孩子' : '鸭鸭'}</span><p>${escape(turn.text)}</p></div>`).join(''); }
 function render() {
+  const previousMascot=document.querySelector('.mascot');
   updateWaitExit();
   const focusedId = document.activeElement?.id;
   $('#record-count').textContent = child ? records.filter(record=>record.child?.id===child.id).length : '—';
+  $('#help-button').disabled = screen==='closing'||capture!=='idle'||interactionLocked();
   $('#history-button').disabled = screen==='closing' || capture !== 'idle' || aiPending || saving || !child;
   if (screen === 'roster') {
     const roster = currentRoster();
@@ -212,13 +254,15 @@ function render() {
       button.onclick = () => selectChild(button.dataset.child);
       button.onfocus = () => {
         rosterFocus = index;
+        clearTimeout(focusTimer);
+        if(soundUnlocked)focusTimer=setTimeout(()=>{if(screen==='roster'&&document.activeElement===button)say(roster[index].name);},280);
         document.querySelectorAll('[data-child]').forEach(item => { item.tabIndex = item === button ? 0 : -1; });
       };
     });
   } else if (screen === 'conversation') {
     const listening = capture === 'listening';
     const waiting = interactionLocked();
-    $('#main').innerHTML = `<section class="child-scene"><div class="friend-column"><p class="eyebrow">${listening ? '我在认真听' : '鸭鸭一直陪着你'}</p>${mascot(mood())}<span class="friend-caption">${listening ? '想一想也没关系' : waiting ? (speaking?'先听我说完，再轮到你':'我会陪你一起等') : '点点我，听我再说一遍'}</span></div><div class="talk-column"><div class="identity-strip">${avatar(child,'mini')}<strong>${escape(child.name)}正在讲故事</strong><button id="switch-child" class="text-button">换个人 · Esc</button></div><div role="status" class="status-pill ${waiting&&replyPhase!=='playing'?'waiting':listening ? 'live' : ''}"><span></span>${replyPhase==='playing' ? (draft.endRequested||draft.roundComplete||finishAfterInput?'听鸭鸭说完，我帮你记下来':'听鸭鸭说完，就轮到你') : replyPhase ? '正在准备鸭鸭的声音' : capture === 'starting' ? '正在打开麦克风' : capture === 'cue' ? '听完这句话，就轮到你' : listening ? '轮到你说啦' : waiting ? '把这句话记下来' : roundLimitReached() ? '今天讲好啦' : '我们接着聊'}</div><h1 class="conversation-prompt">${escape(replyPhase==='preparing'&&!prompt?'鸭鸭想好了，马上说给你听。':prompt)}</h1><div class="heard"><span>${listening ? '正在收音，停下来后再核对' : liveText ? '刚才还没说完的' : '你刚才说'}</span><p id="live-text">${escape(liveText || words().at(-1) || '说一点点，也可以。')}</p></div><button id="record-toggle" class="primary ${listening ? 'recording' : ''}" ${waiting || roundLimitReached() ? 'disabled' : ''}>${icon(listening ? 'stop' : 'mic')}<span>${listening ? '说好了，按一下' : capture === 'cue' ? '准备好，再开口' : waiting ? '等我一下' : roundLimitReached() ? '这次讲好啦' : '我来说一说'}</span></button><div class="keyboard-cue"><kbd>${roundLimitReached()?'回车':'空格'}</kbd><span>${waiting?'先听鸭鸭说，键盘休息一下':roundLimitReached()?'选小本子，核对故事':listening ? '再按一下，停止说话' : '按一下，开始说话'}</span></div><button id="finish-button" class="finish-button" ${(capture !== 'idle'&&capture!=='listening') || aiPending || pendingAudio || (!words().length&&capture!=='listening') ? 'disabled' : ''}>${icon('book')}<span>今天讲好啦</span><span>→</span></button>${pendingAudio&&capture==='idle'&&!aiPending?'<button id="retry-audio" class="quiet-button">重新听这段录音</button><button id="rerecord" class="quiet-button">重新说这一段</button>':''}${replyError?'<button id="retry-reply" class="quiet-button">重新听鸭鸭的回复</button>':''}${draft.aiError&&!aiPending&&capture==='idle'?'<button id="retry-ai" class="quiet-button">请鸭鸭再接着说</button>':''}</div></section>`;
+    $('#main').innerHTML = `<section class="child-scene"><div class="friend-column"><p class="eyebrow">${listening ? '我在认真听' : '鸭鸭一直陪着你'}</p>${mascot(mood())}<span class="friend-caption">${listening ? '想一想也没关系' : waiting ? (speaking?'先听我说完，再轮到你':'我会陪你一起等') : '点点我，听我再说一遍'}</span></div><div class="talk-column"><div class="identity-strip">${avatar(child,'mini')}<strong>${escape(child.name)}正在讲故事</strong><button id="switch-child" class="text-button">换个人 · Esc</button></div><div role="status" class="status-pill ${waiting&&replyPhase!=='playing'?'waiting':listening ? 'live' : ''}"><span></span>${replyPhase==='playing' ? (draft.endRequested||draft.roundComplete||finishAfterInput?'听鸭鸭说完，我帮你记下来':'听鸭鸭说完，就轮到你') : replyPhase ? '正在准备鸭鸭的声音' : capture === 'starting' ? '正在打开麦克风' : capture === 'cue' ? '听完这句话，就轮到你' : listening ? '轮到你说啦' : waiting ? '把这句话记下来' : roundLimitReached() ? '今天讲好啦' : '我们接着聊'}</div><h1 class="conversation-prompt">${escape(replyPhase==='preparing'&&!prompt?'鸭鸭想好了，马上说给你听。':prompt)}</h1><div class="heard"><span>${listening ? '正在听，停顿也没关系' : liveText ? '刚才还没说完的' : '你刚才说'}</span><p id="live-text">${escape(liveText || words().at(-1) || '说一点点，也可以。')}</p></div><button id="record-toggle" class="primary ${listening ? 'recording' : ''}" ${waiting || roundLimitReached() ? 'disabled' : ''}>${icon(listening ? 'stop' : 'mic')}<span>${listening ? '说好了，按一下' : capture === 'cue' ? '准备好，再开口' : waiting ? '等我一下' : roundLimitReached() ? '这次讲好啦' : '我来说一说'}</span></button><div class="keyboard-cue"><kbd>${roundLimitReached()?'回车':'空格'}</kbd><span>${waiting?(capture==='starting'?'麦克风准备中':replyPhase==='playing'?'先听鸭鸭说，键盘休息一下':'等鸭鸭准备好，键盘休息一下'):roundLimitReached()?'选小本子，记下故事':listening ? '再按一下，停止说话' : '按一下，开始说话'}</span></div><button id="finish-button" class="finish-button" ${(capture !== 'idle'&&capture!=='listening') || aiPending || pendingAudio || (!words().length&&capture!=='listening') ? 'disabled' : ''}>${icon('book')}<span>今天讲好啦</span><span>→</span></button>${pendingAudio&&capture==='idle'&&!aiPending?'<button id="retry-audio" class="quiet-button">重新听这段录音</button><button id="rerecord" class="quiet-button">重新说这一段</button>':''}${replyError?'<button id="retry-reply" class="quiet-button">重新听鸭鸭的回复</button>':''}${draft.aiError&&!aiPending&&capture==='idle'?'<button id="retry-ai" class="quiet-button">请鸭鸭再接着说</button>':''}</div></section>`;
     $('#record-toggle').onclick = toggleCapture;
     if($('#retry-reply'))$('#retry-reply').onclick=()=>playReply(draft);
     if(replyError){const help=document.createElement('button');help.className='quiet-button';help.textContent='请老师帮忙保存';help.onclick=()=>{replyError=false;silence();beginClosing(false);};$('.talk-column').append(help);}
@@ -240,6 +284,9 @@ function render() {
     $('#return-button').onclick = () => draft ? go('conversation') : returnToRoster();
     document.querySelectorAll('[data-record]').forEach(button => { button.onclick = () => say(records.find(record => record.id === button.dataset.record).text,undefined,true); });
   }
+  // Keep the same pose layers and animation progress across status renders.
+  const replacement=document.querySelector('.mascot');
+  if(previousMascot&&replacement){previousMascot.className=replacement.className;previousMascot.disabled=replacement.disabled;replacement.replaceWith(previousMascot);}
   document.querySelectorAll('.mascot').forEach(button => { button.onclick = () => {
     if(interactionLocked())return;
     if(replyError){playReply(draft);return;}
@@ -256,7 +303,7 @@ function render() {
   refreshMood();
 }
 const input = new Recorder({
-  onState:state=>{capture=state;render();if(state==='stopping')say('已经停止听了，等我把这句话记下来。');},
+  onState:state=>{capture=state;render();if(state==='stopping')beginProcessingHint();},
   onCommit:async (text,inputId)=>{
     if(leaving)return;const owner=draft;
     if(draft.turns.some(turn=>turn.inputId===inputId))return;
@@ -264,16 +311,16 @@ const input = new Recorder({
     await update(state=>{state.drafts[child.id]=next;});if(leaving||draft!==owner)return;draft=next;drafts[child.id]=next;liveText='';
   },
   onReady:async()=>{if(leaving)return;pendingAudio=false;await respond();},
-  onError:async message=>{const failedDraft=draft;if(!failedDraft)return;const hasAudio=await input.hasPending(`story:${failedDraft.id}`).catch(()=>false);if(draft!==failedDraft||screen!=='conversation')return;pendingAudio=hasAudio;render();notify(message);say(pendingAudio?'刚才没能记好，已经收到的声音先留着。请老师帮忙检查，再选重新听这段。':message);}
+  onError:async message=>{stopProcessingHint();const failedDraft=draft;if(!failedDraft)return;const hasAudio=await input.hasPending(`story:${failedDraft.id}`).catch(()=>false);if(draft!==failedDraft||screen!=='conversation')return;pendingAudio=hasAudio;render();notify(message);say(pendingAudio?'刚才没能记好，已经收到的声音先留着。请老师帮忙检查，再选重新听这段。':message);}
 });
 function playReply(current) {
   if(!current||aiPending||replyPhase)return;
-  clearTimeout(focusTimer);replyError=false;replyPhase='preparing';prompt='';render();
+  clearTimeout(focusTimer);beginProcessingHint();replyError=false;replyPhase='preparing';prompt='';render();
   const reply=duckLine(current.turns.filter(t=>t.role==='assistant').at(-1)?.text||opening);
   const callKey=current.id+':'+current.turns.length;
   if(!replyCalls.has(callKey))replyCalls.set(callKey,chooseDuckCall());
   const ended=current.roundComplete||current.endRequested||finishAfterInput;
-  guide=reply+(ended?'':continueCue);guideIsVerbatim=false;
+  guide=reply;guideIsVerbatim=false;
   let shown='';
   const refreshReply=()=>{
     // Updating a sentence must not recreate the mascot or restart its animation.
@@ -281,6 +328,7 @@ function playReply(current) {
     const waiting=replyPhase==='preparing',pill=$('.status-pill');
     pill.classList.toggle('waiting',waiting);
     pill.replaceChildren(document.createElement('span'),document.createTextNode(waiting?'正在准备鸭鸭的声音':ended?'听鸭鸭说完，我帮你记下来':'听鸭鸭说完，就轮到你'));
+    $('.keyboard-cue span').textContent=waiting?'等鸭鸭准备好，键盘休息一下':'先听鸭鸭说，键盘休息一下';
     $('.friend-caption').textContent=waiting?'我会陪你一起等':'先听我说完，再轮到你';
     refreshMood();updateWaitExit();
   };
@@ -302,14 +350,14 @@ function playReply(current) {
     },
     onError:()=>{
       if(draft!==current||screen!=='conversation')return;
-      replyPhase='';replyError=true;render();$('#retry-reply')?.focus();
+      stopProcessingHint();replyPhase='';replyError=true;render();$('#retry-reply')?.focus();
     }
   });
 }
 async function respond(){
   if(aiPending||!draft||capture!=='idle')return;
   clearTimeout(focusTimer);replyError=false;aiPending=true;silence();render();const current=draft,epoch=operationEpoch;operationController=new AbortController();
-  const wait=setTimeout(()=>{if(epoch===operationEpoch&&!leaving)say('我还在想你刚才说的话，稍等一下。');},6000);
+  beginProcessingHint();
   try{
     const result=await api('chat',{turns:current.turns,childName:child.name,conversationRounds:current.conversationRounds??configuredRounds},'POST',operationController.signal);
     if(epoch!==operationEpoch||leaving)return;
@@ -317,9 +365,9 @@ async function respond(){
     const next=structuredClone(current);next.turns.push({role:'assistant',text:reply});next.aiError=false;next.roundComplete=Boolean(result.isFinalRound);next.endRequested=Boolean(result.endConversation);next.autoFinish=next.roundComplete||next.endRequested||finishAfterInput;
     await update(state=>{state.drafts[next.child.id]=next;});
     if(epoch!==operationEpoch||leaving)return;
-    draft=next;drafts[next.child.id]=next;clearTimeout(wait);aiPending=false;playReply(next);
+    draft=next;drafts[next.child.id]=next;aiPending=false;playReply(next);
   }catch(e){
-    clearTimeout(wait);if(epoch!==operationEpoch||leaving)return;aiPending=false;render();notify(e.message);
+    stopProcessingHint();if(epoch!==operationEpoch||leaving)return;aiPending=false;render();notify(e.message);
     say('你的话已经留好了，鸭鸭暂时没能接上。可以请老师帮忙，再选请鸭鸭接着说，也可以选小本子结束。');
   }
 }
@@ -332,7 +380,7 @@ function toggleCapture(){
   if(capture==='starting')return;
   if(capture==='listening'){input.stop();return;}
   if(pendingAudio){say('还有一段没听清的声音，请先选重新听这段。');return;}
-  capture='cue';render();say('听到小提示音后就可以说啦，说完再按空格。',()=>{if(capture!=='cue')return;input.start(audioKey());});
+  clearTimeout(focusTimer);stopProcessingHint();silence();recoveryVoice.stop();input.start(audioKey());
 }
 function finishStory(){
   if(capture==='listening'){finishAfterInput=true;input.stop();return;}
@@ -366,12 +414,13 @@ async function completeStory(){
   clearInterval(closingTimer);silence();closingStage='saving';closingError='';
   const current=draft,epoch=operationEpoch;operationController=new AbortController();
   if(current.editedText===undefined){
-    aiPending=true;render();say('我正在把你的故事记下来。');
+    aiPending=true;render();beginProcessingHint();
     try{const result=await api('summary',{turns:current.turns},'POST',operationController.signal);if(epoch!==operationEpoch||leaving)return;if(!result.text?.trim())throw new Error('整理内容为空');current.editedText=result.text;}
     catch(e){if(epoch!==operationEpoch||leaving)return;current.editedText=words().join('\n\n');current.summaryFallback=true;}
     finally{if(epoch===operationEpoch&&!leaving)aiPending=false;}
   }
   if(epoch!==operationEpoch||leaving)return;
+  stopProcessingHint();
   const text=current.editedText.trim();
   if(!text){closingStage='error';closingError='还没有可保存的话，请老师帮忙。';render();return;}
   saving=true;render();
@@ -431,11 +480,12 @@ document.addEventListener('keydown', event => {
   clearTimeout(focusTimer);
   if (capture === 'idle') focusTimer = setTimeout(() => {
     if (!item.isConnected || item !== document.activeElement || capture !== 'idle') return;
-    say(`${item.getAttribute('aria-label') || item.textContent.trim()}。按回车选择。`);
+    say(screen==='roster'?currentRoster()[index].name:`${item.getAttribute('aria-label') || item.textContent.trim()}。按回车选择。`);
   }, 280);
 });
-window.addEventListener('pagehide', () => { clearInterval(closingTimer); if(replyPhase){replyPhase='';replyError=true;} silence(); recoveryVoice.stop(); input.cancel(); });
+window.addEventListener('pagehide', () => { clearInterval(closingTimer);stopProcessingHint(); if(replyPhase){replyPhase='';replyError=true;} silence(); recoveryVoice.stop(); input.cancel(); });
 window.addEventListener('pageshow',event=>{if(event.persisted&&screen==='closing'&&!saving&&!aiPending&&!leaving){beginClosing();return;}if(event.persisted&&replyError){render();$('#retry-reply')?.focus();}});
-render(); document.querySelector('[data-child]')?.focus({preventScroll:true}); guide = stepGuide(); say(guide,()=>speaker.preload([continueCue,closingCue,duckLine('还想说，按空格。')]));
+render(); document.querySelector('[data-child]')?.focus({preventScroll:true}); clearTimeout(focusTimer);guide = stepGuide(); say(guide,()=>speaker.preload([closingCue,duckLine('还想说，按空格。')]));
+Promise.all(['listening','acknowledging','writing','inviting'].map(name=>{const img=new Image();img.src=`assets/duck-poses/${name}.png`;return img.decode();})).then(()=>{posesReady=true;refreshMood();}).catch(()=>console.warn('新姿态未加载，继续使用原有小鸭。'));
 
 window.addEventListener('beforeunload',e=>{if(screen==='closing'||capture!=='idle'||aiPending||saving||draftWrites||draftUnsaved){e.preventDefault();e.returnValue='';}});

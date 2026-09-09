@@ -7,7 +7,7 @@ const today = dateKey();
 let selectedDate = today, month = today.slice(0,7), selectedIds = [], dirty = false;
 let view = '', search = '', showArchived = false, recordChild = '', recordFilter = 'all', recordDay = '';
 let toastTimer, dialogReturnFocus;
-let daySearch = '';
+let daySearch = '', selectedExpanded = false;
 const names = {schedule:'排班日历',children:'幼儿管理',ducks:'小鸭管理',records:'故事记录'};
 const dateText = value => asDate(value).toLocaleDateString('zh-CN',{month:'long',day:'numeric',weekday:'long'});
 const records = () => read(RECORDS_KEY,[]);
@@ -32,7 +32,7 @@ function pageHead(title,description,action='') {
   return `<div class="page-head"><div><p class="eyebrow">LITTLE MOMENTS, WELL KEPT</p><h1>${title}</h1><p class="subline">${description}</p></div>${action}</div>`;
 }
 function dayIds(date) { return rosterFor(data,date).map(c=>c.id); }
-function loadDay(date) { selectedDate=date; month=date.slice(0,7); selectedIds=dayIds(date); dirty=false; daySearch=''; }
+function loadDay(date) { selectedDate=date; month=date.slice(0,7); selectedIds=dayIds(date); dirty=false; daySearch=''; selectedExpanded=false; }
 loadDay(today);
 function confirmDiscard(callback) {
   if (!dirty) { callback(); return; }
@@ -87,7 +87,7 @@ function schedulePage(){
 }
 function dayEditor(){
   const d=asDate(selectedDate);
-  return `<p class="eyebrow">${selectedDate===today?'TODAY · 今天':'DAY PLAN · 当天安排'}</p><h2 class="date-big">${d.getMonth()+1} 月 ${d.getDate()} 日<small>${d.toLocaleDateString('zh-CN',{weekday:'long'})}</small></h2><span id="save-state" class="saved-label ${dirty?'unsaved':''}">${dirty?'有修改，尚未保存':'已保存的安排'}</span><div class="row spread label"><span>选择当天的幼儿</span><span id="selected-count">全部已选 ${selectedIds.length} 位</span></div><div class="day-search-row"><label class="sr-only" for="day-child-search">搜索幼儿姓名、小名或拼音首字母</label><input id="day-child-search" type="search" placeholder="姓名 / 小名 / 拼音首字母" value="${esc(daySearch)}" autocomplete="off" aria-describedby="day-search-hint day-match-count"><button type="button" class="button compact" id="clear-day-search" ${daySearch?'':'hidden'}>清空</button></div><p id="day-search-hint" class="day-search-hint">如“小禾”可输入 XH；筛选不改变已选名单。</p><p id="day-match-count" class="day-match-count" role="status" aria-live="polite"></p><div class="child-picker">${activeChildren().map(c=>`<label class="pick-child" data-pick-child="${esc(c.id)}">${personAvatar(c)}<span><strong>${esc(c.name)}</strong><small>${esc(c.fullName||c.name)}</small></span><input type="checkbox" value="${esc(c.id)}" ${selectedIds.includes(c.id)?'checked':''} aria-label="安排${esc(c.name)}"></label>`).join('')||'<p class="subline">先到幼儿管理添加一位孩子。</p>'}</div><p id="day-search-empty" class="day-search-empty" hidden>没有找到这位幼儿，试试中文姓名，或清空搜索查看全部。</p><button class="button primary wide" id="save-day" ${dirty?'':'disabled'}>保存当天安排</button><button class="button subtle wide" id="copy-previous">沿用上周${d.toLocaleDateString('zh-CN',{weekday:'long'}).replace('星期','周').replace('周','')}的名单</button>`;
+  return `<p class="eyebrow">${selectedDate===today?'TODAY · 今天':'DAY PLAN · 当天安排'}</p><h2 class="date-big">${d.getMonth()+1} 月 ${d.getDate()} 日<small>${d.toLocaleDateString('zh-CN',{weekday:'long'})}</small></h2><span id="save-state" class="saved-label ${dirty?'unsaved':''}">${dirty?'有修改，尚未保存':'已保存的安排'}</span><section class="selected-roster" aria-label="已选幼儿"><div class="row spread selected-roster-heading"><strong id="selected-count">已选 ${selectedIds.length} 位</strong><button type="button" id="toggle-selected" aria-controls="selected-roster-list" aria-expanded="${selectedExpanded}" ${selectedIds.length>4?'':'hidden'}>${selectedExpanded?'收起':'展开全部'}</button></div><div id="selected-roster-list" class="selected-roster-list"></div></section><div class="day-search-row"><label class="sr-only" for="day-child-search">搜索幼儿姓名、小名或拼音首字母</label><input id="day-child-search" type="search" placeholder="姓名 / 小名 / 拼音首字母" value="${esc(daySearch)}" autocomplete="off" aria-describedby="day-search-hint day-match-count"><button type="button" class="button compact" id="clear-day-search" ${daySearch?'':'hidden'}>清空</button></div><p id="day-search-hint" class="day-search-hint">姓名 / 小名首字母，如“小禾”输入 XH。</p><p id="day-match-count" class="day-match-count" role="status" aria-live="polite"></p><div class="child-picker">${activeChildren().map(c=>`<label class="pick-child" data-pick-child="${esc(c.id)}">${personAvatar(c)}<span><strong>${esc(c.name)}</strong><small>${esc(c.fullName||c.name)}</small></span><input type="checkbox" value="${esc(c.id)}" ${selectedIds.includes(c.id)?'checked':''} aria-label="安排${esc(c.name)}"></label>`).join('')||'<p class="subline">先到幼儿管理添加一位孩子。</p>'}</div><p id="day-search-empty" class="day-search-empty" hidden>没有找到这位幼儿，试试中文姓名，或清空搜索查看全部。</p><div class="day-editor-actions"><button class="button primary wide" id="save-day" ${dirty?'':'disabled'}>保存当天安排</button><button class="button subtle wide" id="copy-previous">沿用上周${d.toLocaleDateString('zh-CN',{weekday:'long'}).replace('星期','周').replace('周','')}的名单</button></div>`;
 }
 function duckArt(d){
   if(d.photo)return `<img src="${esc(d.photo)}" alt="${esc(d.name)}的照片">`;
@@ -117,7 +117,7 @@ function bindView(){
     $('#prev-month').onclick=()=>changeMonth(-1);$('#next-month').onclick=()=>changeMonth(1);
     $('#back-today').onclick=()=>confirmDiscard(()=>{loadDay(today);render();});
     $('#jump-date').onchange=e=>{const date=e.target.value;if(date)confirmDiscard(()=>{loadDay(date);render();});};
-    $('.child-picker').onchange=()=>{selectedIds=[...document.querySelectorAll('.pick-child input:checked')].map(i=>i.value);markDirty();filterDayChildren(false);};
+    $('.child-picker').onchange=()=>{selectedIds=[...document.querySelectorAll('.pick-child input:checked')].map(i=>i.value);markDirty();renderSelectedRoster();filterDayChildren(false);};
     $('#day-child-search').oninput=e=>{daySearch=e.target.value;filterDayChildren();};
     $('#day-child-search').onkeydown=e=>{
       if(e.isComposing)return;
@@ -125,6 +125,8 @@ function bindView(){
       if(e.key==='Enter'){e.preventDefault();$('.pick-child:not([hidden]) input')?.focus();}
     };
     $('#clear-day-search').onclick=clearDaySearch;
+    $('#toggle-selected').onclick=()=>{selectedExpanded=!selectedExpanded;renderSelectedRoster();};
+    renderSelectedRoster();
     filterDayChildren();
     $('#save-day').onclick=()=>saveDay();
     $('#copy-previous').onclick=()=>{selectedIds=dayIds(shiftDay(selectedDate,-7));dirty=JSON.stringify(selectedIds)!==JSON.stringify(dayIds(selectedDate));render();notify(selectedIds.length?'已带入上周名单，检查后保存。':'上周这天没有安排，可直接勾选幼儿。');};
@@ -144,6 +146,22 @@ function bindView(){
     $('#record-filter').onchange=e=>{recordFilter=e.target.value;render();};
   }
 }
+function renderSelectedRoster(){
+  const list=$('#selected-roster-list'), toggle=$('#toggle-selected');
+  const chosen=selectedIds.map(id=>data.children.find(c=>c.id===id)).filter(Boolean);
+  if(chosen.length<=4)selectedExpanded=false;
+  toggle.hidden=chosen.length<=4;toggle.textContent=selectedExpanded?'收起':`展开全部（${chosen.length}）`;
+  toggle.setAttribute('aria-expanded',String(selectedExpanded));
+  list.classList.toggle('expanded',selectedExpanded);
+  list.innerHTML=chosen.length?(selectedExpanded?chosen:chosen.slice(0,4)).map(c=>`<button type="button" class="selected-child" data-remove-child="${esc(c.id)}" title="${esc(c.fullName||c.name)} · ${esc(c.name)}" aria-label="移除${esc(c.name)}的当天安排"><span>${esc(c.name)}</span><span aria-hidden="true">×</span></button>`).join(''):'<p class="selected-roster-empty">还没有安排，从下面选择幼儿。</p>';
+  list.querySelectorAll('[data-remove-child]').forEach((button,index)=>button.onclick=()=>{
+    selectedIds=selectedIds.filter(id=>id!==button.dataset.removeChild);
+    document.querySelectorAll('.pick-child input').forEach(input=>{input.checked=selectedIds.includes(input.value);});
+    markDirty();renderSelectedRoster();filterDayChildren(false);
+    const remaining=list.querySelectorAll('[data-remove-child]');
+    (remaining[Math.min(index,remaining.length-1)]||$('#day-child-search')).focus();
+  });
+}
 function clearDaySearch(){daySearch='';$('#day-child-search').value='';filterDayChildren();$('#day-child-search').focus();}
 function filterDayChildren(resetScroll=true){
   const children=activeChildren(), visible=new Set(children.filter(c=>matchesChildName(c,daySearch)).map(c=>c.id));
@@ -154,7 +172,7 @@ function filterDayChildren(resetScroll=true){
   $('#clear-day-search').hidden=!daySearch;
   if(resetScroll)$('.child-picker').scrollTop=0;
 }
-function markDirty(){dirty=JSON.stringify([...selectedIds].sort())!==JSON.stringify([...dayIds(selectedDate)].sort());$('#save-day').disabled=!dirty;$('#selected-count').textContent=`全部已选 ${selectedIds.length} 位`;$('#save-state').textContent=dirty?'有修改，尚未保存':'已保存的安排';$('#save-state').classList.toggle('unsaved',dirty);}
+function markDirty(){dirty=JSON.stringify([...selectedIds].sort())!==JSON.stringify([...dayIds(selectedDate)].sort());$('#save-day').disabled=!dirty;$('#selected-count').textContent=`已选 ${selectedIds.length} 位`;$('#save-state').textContent=dirty?'有修改，尚未保存':'已保存的安排';$('#save-state').classList.toggle('unsaved',dirty);}
 function changeMonth(delta){confirmDiscard(()=>{const d=asDate(`${month}-01`);d.setMonth(d.getMonth()+delta);loadDay(dateKey(d));render();});}
 let editorBaseline="";
 function editorSignature(){const form=$("#profile-form")||$("#review-form");return form?JSON.stringify([...form.querySelectorAll("input:not([type=file]),textarea,select")].map(e=>[e.name||e.id,e.value,e.checked]))+($("#profile-photo")?.innerHTML||""):"";}

@@ -1,5 +1,30 @@
 # 鸭鸭 IP：2D 绘本版
 
+
+## 2026-09-09：补充四个陪伴姿态
+
+正式应用新增 `web/assets/duck-poses/` 下的 listening、acknowledging、writing、inviting 四张 PNG，对应倾听、回应准备时接纳、处理时写日记、轮到儿童开口。使用既有四联图作为身份参考；原图和原型保持不变。四图使用暖米色实底与页面融合，非透明 PNG；预加载后切换，尊重减少动态效果设置。
+
+初次生成的背景含棋盘格，已用内置 imagegen 修正为暖米色背景；没有将棋盘格当作透明图交付。
+
+实际生成提示词：共用下段，并分别追加对应姿态描述。
+
+```
+Use case: illustration-story. Create ONE square full-body character pose asset for the existing children's duck diary app. Reference image is the identity/style reference only, a sheet of four poses: output ONE duck, not a sheet. Preserve exactly this ivory-white round duck with large thin charcoal circular glasses, orange bill and webbed feet, warm golden diary with tiny duck and pencil cover motif, same soft gouache/colored-pencil texture. Entire duck including crest and feet visible, centered x=50%, feet at y=90%, top of crest near y=9%; body occupies about 80% of square height, consistent proportions. Truly transparent background with alpha; no checkerboard, scenery, captions, letters or watermark. Warm attentive companion, not exaggerated cartoon.
+```
+
+- `listening.png`: Lean forward very slightly toward the child, tilt head and gently cup one wing beside the ear, other wing holds closed golden diary. Eyes looking warmly at viewer, bill closed, attentive listening.
+- `acknowledging.png`: A small gentle nod: head slightly lowered, eyes warmly focused on viewer, restrained friendly closed-bill smile, both wings cradle the closed golden diary. Express understanding, not excited celebration or a thumbs-up.
+- `writing.png`: Look gently down toward an open golden diary held at chest/belly, one wing holding a small pencil touching its page, as if carefully noting the child's words. Glasses recognizable; feet stay in same position. No readable text on pages.
+- `inviting.png`: Look up directly toward child/viewer, relaxed head tilted slightly, bill softly closed in a welcoming smile; one wing extends gently palm-up at waist height inviting the child to speak, other wing holds closed golden diary. No waving celebration.
+
+背景修正提示词（分别引用对应初稿）：
+
+```
+Edit this existing illustration only: replace the entire gray checkerboard background with one perfectly uniform flat warm ivory color #FFF6E8. No checkerboard, no pattern, no border. Keep the duck's exact appearance, pose, glasses, diary, texture, proportions, framing and size unchanged. Output one square image. Do not add text or other objects. Opaque flat-color background is intentional.
+```
+
+
 ## 素材与使用
 
 - 参考：V1 `docs/design/reference/duck-ip/duck-ip-front-cutout.png` 和对应 README。
@@ -7,7 +32,7 @@
 - 图像由内置 imagegen 生成；正式应用使用 [`web/assets/duck-storybook-poses.png`](../web/assets/duck-storybook-poses.png)，原型副本保留在 `prototype/assets/duck-storybook-poses.png`。V1 参考图未修改。
 - 四个姿态依次为：安静抱本、侧耳倾听、开口回应、开心举翅。
 - 采用 CSS 裁切姿态和轻微身体动作，语音播放事件控制回应姿态，输入状态控制倾听姿态，收尾及保存结果控制开心姿态。不是音素级口型同步。
-- 正式应用在句间缓冲时保留回应姿态、暂停说话动作；短暂播放交接延迟 180 毫秒再收回姿态，避免瞬间切图。更新每段文字不重建小鸭节点。尊重系统减少动态效果设置。
+- 正式应用在句间缓冲时保留回应姿态、暂停说话动作；短暂播放交接延迟 180 毫秒再收回姿态。2026-09-10 修复四联图淡出时先跳回抱本帧的问题：原有各姿态使用固定独立图层，只做 260 毫秒透明度过渡；状态渲染复用同一小鸭节点，非活动图层暂停动作。主回复和等待/帮助提示都保留句间姿态，不先切回空闲图。准备/书写状态稳定 220 毫秒后才显示，缓存命中导致的极短准备不闪出第三张图。复用节点时同步按钮可用状态。尊重系统减少动态效果设置。
 - 最终图为不透明暖色底，页面以 multiply 混合显示；没有把绘制的棋盘格当作透明背景。第一张生成稿存在棋盘格，未用于应用。
 
 ## 原始绘制提示

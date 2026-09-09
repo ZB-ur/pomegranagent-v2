@@ -97,7 +97,7 @@ export class Recorder {
           await this.transcribe(session, data);
         } catch (error) { await this.fail(session, error); }
       };
-      // The voiced start cue has finished. The short readiness tone contains no speech.
+      // The caller stops guidance before opening the microphone. Signal actual readiness with a short tone only.
       recorder.start(1000);
       session.stopped = new Promise(resolve => { session.resolveStopped = resolve; });
       this.setState(session, 'listening');
