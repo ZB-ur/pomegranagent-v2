@@ -87,7 +87,7 @@ async function selectChild(id) {
     if(existing&&drafts[id]?.id===existing.id)await input.migratePending(id,`story:${existing.id}`);
     const hasAudio=existing?await input.hasPending(`story:${existing.id}`):false;
     if(!current())return;
-    child=person;draft=existing;pendingAudio=hasAudio;replyError=false;finishAfterInput=false;
+    child=person;draft=existing;pendingAudio=hasAudio;replyError=false;finishAfterInput=Boolean(draft?.finishRequested);
     if(draft){draft.conversationRounds??=configuredRounds;draft.child={...person};}
     if(!draft){await start();return;}
     liveText=draft.pendingText??'';
@@ -373,7 +373,7 @@ async function respond(){
   clearTimeout(focusTimer);replyError=false;aiPending=true;silence();render();const current=draft,epoch=operationEpoch;operationController=new AbortController();
   beginProcessingHint();
   try{
-    const result=await api('chat',{turns:current.turns,childName:child.name,conversationRounds:current.conversationRounds??configuredRounds,activityDate:current.activityDate},'POST',operationController.signal);
+    const result=await api('chat',{turns:current.turns,childName:child.name,conversationRounds:current.conversationRounds??configuredRounds,activityDate:current.activityDate,finishRequested:Boolean(current.finishRequested||finishAfterInput)},'POST',operationController.signal);
     if(epoch!==operationEpoch||leaving)return;
     const reply=result.text||result.reply;if(!reply)throw new Error('鸭鸭没有返回内容');
     const next=structuredClone(current);next.turns.push({role:'assistant',text:reply});next.aiError=false;next.roundComplete=Boolean(result.isFinalRound);next.endRequested=Boolean(result.endConversation);next.autoFinish=next.roundComplete||next.endRequested||finishAfterInput;
@@ -397,7 +397,7 @@ function toggleCapture(){
   clearTimeout(focusTimer);stopProcessingHint();silence();recoveryVoice.stop();input.start(audioKey());
 }
 function finishStory(){
-  if(capture==='listening'){finishAfterInput=true;input.stop();return;}
+  if(capture==='listening'){finishAfterInput=true;draft.finishRequested=true;syncDraft().catch(()=>{});input.stop();return;}
   if(pendingAudio){say('还有一段声音没有记好，先重新听这段，或者重新说这一段。');return;}
   if(interactionLocked()||capture!=='idle'||!words().length)return;
   beginClosing();
@@ -420,7 +420,7 @@ function beginClosing(withVoice=true){
   else count();
 }
 async function resumeSpeaking(){
-  clearInterval(closingTimer);silence();closingStage='';closingError='';draft.autoFinish=false;draft.endRequested=false;finishAfterInput=false;
+  clearInterval(closingTimer);silence();closingStage='';closingError='';draft.autoFinish=false;draft.endRequested=false;draft.finishRequested=false;finishAfterInput=false;
   syncDraft().catch(()=>{});go('conversation',false);toggleCapture();
 }
 async function completeStory(){
