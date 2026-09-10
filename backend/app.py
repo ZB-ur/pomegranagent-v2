@@ -110,6 +110,8 @@ def validate_profile(item, snapshot=False):
     string_field(item, 'name', 20, True)
     string_field(item, 'fullName', 30)
     string_field(item, 'note', 300)
+    if 'studentNumber' in item and (type(item['studentNumber']) is not int or not 1 <= item['studentNumber'] <= 9007199254740991):
+        raise APIError(400, '学号必须是有效正整数，或留空。')
     if 'active' in item and type(item['active']) is not bool:
         raise APIError(400, '档案启用状态无效。')
     if not snapshot and 'active' not in item:
@@ -198,17 +200,28 @@ def validate_state(state):
     child_ids = {child['id'] for child in data['children']}
     for profile in data['children'] + data['ducks']:
         validate_profile(profile)
+    student_numbers = set()
+    for child in data['children']:
+        number = child.get('studentNumber')
+        if child.get('active') and number is not None:
+            if number in student_numbers:
+                raise APIError(400, '未归档幼儿的学号不能重复，请检查学号。')
+            student_numbers.add(number)
     if not isinstance(data['schedules'], dict) or not isinstance(state['drafts'], dict):
         raise APIError(400, '排班或草稿结构无效。')
     for date, ids in data['schedules'].items():
         if not valid_date(date) or not isinstance(ids, list) or any(not isinstance(i, str) or i not in child_ids for i in ids) or len(set(ids)) != len(ids):
             raise APIError(400, '排班日期或幼儿编号无效。')
-    for child_id, draft in state['drafts'].items():
-        if child_id not in child_ids or not isinstance(draft, dict):
-            raise APIError(400, '草稿必须归属已有幼儿。')
+    draft_dates = set()
+    for key, draft in state['drafts'].items():
         validate_conversation(draft, child_ids)
-        if draft['child']['id'] != child_id:
-            raise APIError(400, '草稿与幼儿编号不一致。')
+        child_id = draft['child']['id']
+        if key not in (child_id, f"{child_id}:{draft['activityDate']}"):
+            raise APIError(400, '草稿与幼儿、活动日期不一致。')
+        identity = (child_id, draft['activityDate'])
+        if identity in draft_dates:
+            raise APIError(400, '同一幼儿同一天的草稿重复，请重新打开后再试。')
+        draft_dates.add(identity)
     duck_ids = {duck['id'] for duck in data['ducks']}
     for record in state['records']:
         validate_conversation(record, child_ids, record=True)
@@ -546,6 +559,11 @@ class Handler(BaseHTTPRequestHandler):
         conversation_rounds = None
         is_final_round = False
         if path == '/api/chat':
+            activity_date = value.get('activityDate')
+            if activity_date is not None:
+                if not valid_date(activity_date) or activity_date > dt.date.today().isoformat():
+                    raise APIError(400, '请选择今天或过去的活动日期。')
+                messages[0]['content'] += f'\n本次记录的活动日期为 {activity_date}。如补录过去日期，聊那天的经历，不把录入日当作事件发生日；不要添加幼儿未表达的时间细节。'
             conversation_rounds = validate_conversation_rounds(value.get('conversationRounds', settings.get('conversationRounds', DEFAULT_CONVERSATION_ROUNDS)))
             is_final_round = sum(turn['role'] == 'child' for turn in turns) >= conversation_rounds
             if is_final_round:

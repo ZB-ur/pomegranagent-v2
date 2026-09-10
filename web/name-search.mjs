@@ -6,6 +6,8 @@ const normalize = value => String(value || '').normalize('NFKC').toLowerCase().r
 export function matchesChildName(child, query) {
   const needle = normalize(query);
   if (!needle) return true;
+  // A numeric query is an exact student number, avoiding 1 also matching 10/21.
+  if (/^\d+$/u.test(needle)) return Number.isSafeInteger(child.studentNumber) && child.studentNumber === Number(needle);
   return [child.name, child.fullName].some(value => {
     const name = normalize(value);
     return name && (name.includes(needle) || match(name, needle, {

@@ -107,3 +107,22 @@ export function personAvatar(person, className='') {
   return `<span class="person-avatar avatar-${Number(person.avatar)||0} ${className}" aria-hidden="true"></span>`;
 }
 export function recordDate(record) { return record.activityDate ?? dateKey(new Date(record.createdAt)); }
+
+// A child may have unfinished stories for several activity dates.
+export const draftKey=(childId,date)=>`${childId}:${date}`;
+export function draftFor(drafts,childId,date){
+  const current=drafts[draftKey(childId,date)];
+  if(current)return current;
+  const legacy=drafts[childId];
+  return legacy&&recordDate(legacy)===date?legacy:null;
+}
+export function putDraft(drafts,draft){
+  const id=draft.child.id, legacy=drafts[id];
+  drafts[draftKey(id,draft.activityDate)]=draft;
+  if(legacy?.id===draft.id&&recordDate(legacy)===draft.activityDate)delete drafts[id];
+}
+export function removeDraft(drafts,draft){
+  const key=draftKey(draft.child.id,draft.activityDate);
+  if(drafts[key]?.id===draft.id)delete drafts[key];
+  if(drafts[draft.child.id]?.id===draft.id)delete drafts[draft.child.id];
+}

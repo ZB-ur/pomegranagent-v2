@@ -1,18 +1,23 @@
 import { Recorder, Speaker, handlesSpace } from './audio.mjs';
 import { duckLine, chooseDuckCall } from './duck-voice.mjs';
-import { loadData, rosterFor, dateKey, recordDate, read, update, api, refresh } from './store.mjs';
+import { loadData, rosterFor, dateKey, recordDate, read, update, api, refresh, draftFor, putDraft, removeDraft } from './store.mjs';
 
 const $ = selector => document.querySelector(selector);
 const DRAFT_KEY = 'penegranagent-v2:prototype:child-drafts';
 const RECORDS_KEY = 'penegranagent-v2:prototype:records';
-const activityDate = dateKey();
-const opening = duckLine('今天，你和小鸭一起做了什么呀？');
+const today=dateKey(), requestedDate=new URLSearchParams(location.search).get('date');
+const validRequestedDate=requestedDate!==null&&/^\d{4}-\d{2}-\d{2}$/.test(requestedDate)&&dateKey(new Date(requestedDate+'T12:00:00'))===requestedDate&&requestedDate<=today;
+const dateIssue=requestedDate!==null&&!validRequestedDate;
+const activityDate=validRequestedDate?requestedDate:today;
+const isBackfill=activityDate!==today;
+const activityLabel=new Date(activityDate+'T12:00:00').toLocaleDateString('zh-CN',{year:'numeric',month:'long',day:'numeric'});
+const opening = duckLine(isBackfill?`${activityLabel}，你和小鸭一起做了什么呀？`:'今天，你和小鸭一起做了什么呀？');
 let records = read(RECORDS_KEY, []);
 let drafts = read(DRAFT_KEY, {});
 let draft = null;
 let configuredRounds=3;
 let child = null;
-const currentRoster = () => rosterFor(loadData(),activityDate);
+const currentRoster = () => dateIssue?[]:rosterFor(loadData(),activityDate);
 let rosterFocus = 0;
 let focusTimer;
 let screen = 'roster';
@@ -47,13 +52,16 @@ function notify(text) {
 let draftSave=Promise.resolve(), draftWrites=0, draftWriteEpoch=0, draftUnsaved=false, selectionEpoch=0;
 function syncDraft() {
   if(!draft?.child)return Promise.resolve();
-  const snapshot=structuredClone(draft),key=draft.child.id;
+  const snapshot=structuredClone(draft);
   const epoch=++draftWriteEpoch;draftUnsaved=true;
-  drafts[key]=snapshot;
+  putDraft(drafts,snapshot);
   draftWrites++;
-  draftSave=update(next=>{next.drafts[key]=snapshot;}).then(result=>{if(epoch===draftWriteEpoch)draftUnsaved=false;return result;}).finally(()=>{draftWrites--;});
+  draftSave=update(next=>{putDraft(next.drafts,snapshot);}).then(result=>{if(epoch===draftWriteEpoch)draftUnsaved=false;return result;}).finally(()=>{draftWrites--;});
   draftSave.catch(e=>notify('草稿还没保存到本机，请先不要关闭。'+e.message));
   return draftSave;
+}
+function studentBadge(person,compact=false){
+  return person.studentNumber==null?'':`<span class="student-badge ${compact?'compact':''}" title="学号 ${person.studentNumber}"><small>学号</small><b>${person.studentNumber}</b></span>`;
 }
 function avatar(person, className = '') {
   if (person.photo) return `<img class="child-avatar uploaded-avatar ${className}" src="${escape(person.photo)}" alt="">`;
@@ -61,9 +69,9 @@ function avatar(person, className = '') {
   return `<span class="child-avatar avatar-${person.avatar} ${className}" aria-hidden="true"></span>`;
 }
 function childStatus(person) {
-  const pending = drafts[person.id];
+  const pending = draftFor(drafts,person.id,activityDate);
   if (pending?.pendingText || pending?.turns.some(turn => turn.role === 'child')) return '还有话想说';
-  return records.some(record => record.child?.id === person.id && recordDate(record) === activityDate) ? '今天已记好' : '轮到我讲故事';
+  return records.some(record => record.child?.id === person.id && recordDate(record) === activityDate) ? (isBackfill?'这天已记好':'今天已记好') : '轮到我讲故事';
 }
 async function selectChild(id) {
   if(screen!=='roster')return;
@@ -74,13 +82,13 @@ async function selectChild(id) {
     records=read(RECORDS_KEY,[]);drafts=read(DRAFT_KEY,{});
     const config=await api('settings',undefined,'GET');if(!current())return;configuredRounds=config.conversationRounds??3;
     const person=currentRoster().find(person=>person.id===id);
-    if(!person){rosterFocus=0;go('roster');say('老师更新了今天的名单。我们重新选一下自己的头像吧。');return;}
-    const existing=drafts[id]??null;
-    if(existing)await input.migratePending(id,`story:${existing.id}`);
+    if(!person){rosterFocus=0;go('roster');say('老师更新了名单。我们重新选一下自己的头像吧。');return;}
+    const existing=draftFor(drafts,id,activityDate);
+    if(existing&&drafts[id]?.id===existing.id)await input.migratePending(id,`story:${existing.id}`);
     const hasAudio=existing?await input.hasPending(`story:${existing.id}`):false;
     if(!current())return;
     child=person;draft=existing;pendingAudio=hasAudio;replyError=false;finishAfterInput=false;
-    if(draft)draft.conversationRounds??=configuredRounds;
+    if(draft){draft.conversationRounds??=configuredRounds;draft.child={...person};}
     if(!draft){await start();return;}
     liveText=draft.pendingText??'';
     prompt=draft.turns.filter(turn=>turn.role==='assistant').at(-1)?.text??opening;
@@ -99,7 +107,7 @@ async function returnToRoster() {
     const roster = currentRoster();
     for (let offset = 1; offset <= roster.length; offset++) {
       const index = (rosterFocus + offset) % roster.length;
-      if (childStatus(roster[index]) !== '今天已记好') { rosterFocus = index; break; }
+      if (!['这天已记好','今天已记好'].includes(childStatus(roster[index]))) { rosterFocus = index; break; }
     }
   }
   ++selectionEpoch;child = null; draft = null; liveText = '';pendingAudio=false;
@@ -218,8 +226,9 @@ function openHelp(){
 }
 $('#help-button').onclick=openHelp;
 function stepGuide() {
+  if(dateIssue)return '日期不对，请老师重新选一天。';
   if (screen === 'roster' && !currentRoster().length) return '还没有安排小朋友，请老师先帮忙安排一下吧。';
-  if (screen === 'roster') return '找到自己的头像，来和我聊聊吧。';
+  if (screen === 'roster') return isBackfill?`来补记${activityLabel}的故事。找到自己的头像吧。`:'找到自己的头像，来和我聊聊吧。';
   if(screen==='conversation'&&pendingAudio)return '你上次说的声音还在。请老师检查服务后，用方向键选重新听这段，再按回车。';
   if(screen==='conversation'&&draft.aiError)return '你的话已经留好了，请鸭鸭接着说吧。';
   if(screen==='conversation'&&roundLimitReached())return draft.aiError?'你的话已经留好了。选请鸭鸭再接着说，听完我们就记故事。':`${prompt} 选小本子，我帮你记下来。`;
@@ -244,12 +253,17 @@ function render() {
   const previousMascot=document.querySelector('.mascot');
   updateWaitExit();
   const focusedId = document.activeElement?.id;
+  let dateBanner=$('#activity-banner');
+  if((isBackfill||dateIssue)&&!dateBanner){dateBanner=document.createElement('div');dateBanner.id='activity-banner';dateBanner.className='activity-banner';document.querySelector('.header').after(dateBanner);}
+  if(dateBanner)dateBanner.innerHTML=dateIssue?'日期无效，请老师从排班日历重新进入。':`<strong>补录 · ${activityLabel}</strong><span>故事将记在这一天</span><a href="index.html" id="back-today">返回今天</a>`;
+  if($('#back-today'))$('#back-today').onclick=async event=>{event.preventDefault();if(interactionLocked()||capture!=='idle'||screen==='closing')return;try{await syncDraft();location.href='index.html';}catch{}};
+  dateBanner?.toggleAttribute('inert',interactionLocked()||capture!=='idle'||screen==='closing');
   $('#record-count').textContent = child ? records.filter(record=>record.child?.id===child.id).length : '—';
   $('#help-button').disabled = screen==='closing'||capture!=='idle'||interactionLocked();
   $('#history-button').disabled = screen==='closing' || capture !== 'idle' || aiPending || saving || !child;
   if (screen === 'roster') {
     const roster = currentRoster();
-    $('#main').innerHTML = `<section class="selection-layout"><aside class="selection-friend">${mascot('idle',true)}<p>今天的小故事，<br>我已经准备好听啦。</p></aside><div class="selection-content"><p class="chapter">${dateLabel(activityDate+'T12:00:00')} · ${activityDate===dateKey()?'今天的小小照顾员':'排班日期预览'}</p><h1>${roster.length?'找到自己，<br class="mobile-break">来和鸭鸭聊聊。':'等老师安排好，<br>我们就可以聊啦。'}</h1><div class="roster-grid" data-count="${roster.length}">${roster.map((person,index) => `<button class="child-card" data-child="${escape(person.id)}" tabindex="${index === rosterFocus ? 0 : -1}" aria-label="${escape(person.name)}，${childStatus(person)}">${avatar(person)}<span class="child-name">${escape(person.name)}</span><span class="child-card-status">${childStatus(person) === '今天已记好' ? '✓ ' : ''}${childStatus(person)}</span></button>`).join('')}</div>${roster.length?'<div class="selection-keys"><span><kbd>← ↑ ↓ →</kbd>选自己的头像</span><span><kbd>回车 ↵</kbd>就是我</span></div>':'<a class="quiet-button" href="teacher.html#schedule">请老师安排今天的名单 →</a>'}</div></section>`;
+    $('#main').innerHTML = `<section class="selection-layout"><aside class="selection-friend">${mascot('idle',true)}<p>${dateIssue?'请老师选好日期，<br>我们再来聊故事。':`${isBackfill?'那天':'今天'}的小故事，<br>我已经准备好听啦。`}</p></aside><div class="selection-content"><p class="chapter">${dateIssue?'重新选择活动日期':`${dateLabel(activityDate+'T12:00:00')} · ${isBackfill?'补录那天的小故事':'今天的小小照顾员'}`}</p><h1>${dateIssue?'请老师选一天，<br>我们再来聊。':roster.length?'找到自己，<br class="mobile-break">来和鸭鸭聊聊。':'等老师安排好，<br>我们就可以聊啦。'}</h1><div class="roster-grid" data-count="${roster.length}">${roster.map((person,index) => `<button class="child-card" data-child="${escape(person.id)}" tabindex="${index === rosterFocus ? 0 : -1}" aria-label="${escape(person.name)}${person.studentNumber==null?'':'，学号'+person.studentNumber}，${childStatus(person)}"><span class="avatar-with-number">${avatar(person)}${studentBadge(person)}</span><span class="child-name">${escape(person.name)}</span><span class="child-card-status">${['这天已记好','今天已记好'].includes(childStatus(person)) ? '✓ ' : ''}${childStatus(person)}</span></button>`).join('')}</div>${roster.length?'<div class="selection-keys"><span><kbd>← ↑ ↓ →</kbd>选自己的头像</span><span><kbd>回车 ↵</kbd>就是我</span></div>':'<a class="quiet-button" href="teacher.html#schedule">请老师安排这一天的名单 →</a>'}</div></section>`;
     document.querySelectorAll('[data-child]').forEach((button,index) => {
       button.onclick = () => selectChild(button.dataset.child);
       button.onfocus = () => {
@@ -262,7 +276,7 @@ function render() {
   } else if (screen === 'conversation') {
     const listening = capture === 'listening';
     const waiting = interactionLocked();
-    $('#main').innerHTML = `<section class="child-scene"><div class="friend-column"><p class="eyebrow">${listening ? '我在认真听' : '鸭鸭一直陪着你'}</p>${mascot(mood())}<span class="friend-caption">${listening ? '想一想也没关系' : waiting ? (speaking?'先听我说完，再轮到你':'我会陪你一起等') : '点点我，听我再说一遍'}</span></div><div class="talk-column"><div class="identity-strip">${avatar(child,'mini')}<strong>${escape(child.name)}正在讲故事</strong><button id="switch-child" class="text-button">换个人 · Esc</button></div><div role="status" class="status-pill ${waiting&&replyPhase!=='playing'?'waiting':listening ? 'live' : ''}"><span></span>${replyPhase==='playing' ? (draft.endRequested||draft.roundComplete||finishAfterInput?'听鸭鸭说完，我帮你记下来':'听鸭鸭说完，就轮到你') : replyPhase ? '正在准备鸭鸭的声音' : capture === 'starting' ? '正在打开麦克风' : capture === 'cue' ? '听完这句话，就轮到你' : listening ? '轮到你说啦' : waiting ? '把这句话记下来' : roundLimitReached() ? '今天讲好啦' : '我们接着聊'}</div><h1 class="conversation-prompt">${escape(replyPhase==='preparing'&&!prompt?'鸭鸭想好了，马上说给你听。':prompt)}</h1><div class="heard"><span>${listening ? '正在听，停顿也没关系' : liveText ? '刚才还没说完的' : '你刚才说'}</span><p id="live-text">${escape(liveText || words().at(-1) || '说一点点，也可以。')}</p></div><button id="record-toggle" class="primary ${listening ? 'recording' : ''}" ${waiting || roundLimitReached() ? 'disabled' : ''}>${icon(listening ? 'stop' : 'mic')}<span>${listening ? '说好了，按一下' : capture === 'cue' ? '准备好，再开口' : waiting ? '等我一下' : roundLimitReached() ? '这次讲好啦' : '我来说一说'}</span></button><div class="keyboard-cue"><kbd>${roundLimitReached()?'回车':'空格'}</kbd><span>${waiting?(capture==='starting'?'麦克风准备中':replyPhase==='playing'?'先听鸭鸭说，键盘休息一下':'等鸭鸭准备好，键盘休息一下'):roundLimitReached()?'选小本子，记下故事':listening ? '再按一下，停止说话' : '按一下，开始说话'}</span></div><button id="finish-button" class="finish-button" ${(capture !== 'idle'&&capture!=='listening') || aiPending || pendingAudio || (!words().length&&capture!=='listening') ? 'disabled' : ''}>${icon('book')}<span>今天讲好啦</span><span>→</span></button>${pendingAudio&&capture==='idle'&&!aiPending?'<button id="retry-audio" class="quiet-button">重新听这段录音</button><button id="rerecord" class="quiet-button">重新说这一段</button>':''}${replyError?'<button id="retry-reply" class="quiet-button">重新听鸭鸭的回复</button>':''}${draft.aiError&&!aiPending&&capture==='idle'?'<button id="retry-ai" class="quiet-button">请鸭鸭再接着说</button>':''}</div></section>`;
+    $('#main').innerHTML = `<section class="child-scene"><div class="friend-column"><p class="eyebrow">${listening ? '我在认真听' : '鸭鸭一直陪着你'}</p>${mascot(mood())}<span class="friend-caption">${listening ? '想一想也没关系' : waiting ? (speaking?'先听我说完，再轮到你':'我会陪你一起等') : '点点我，听我再说一遍'}</span></div><div class="talk-column"><div class="identity-strip">${avatar(child,'mini')}${studentBadge(child,true)}<strong>${escape(child.name)}正在讲故事</strong><button id="switch-child" class="text-button">换个人 · Esc</button></div><div role="status" class="status-pill ${waiting&&replyPhase!=='playing'?'waiting':listening ? 'live' : ''}"><span></span>${replyPhase==='playing' ? (draft.endRequested||draft.roundComplete||finishAfterInput?'听鸭鸭说完，我帮你记下来':'听鸭鸭说完，就轮到你') : replyPhase ? '正在准备鸭鸭的声音' : capture === 'starting' ? '正在打开麦克风' : capture === 'cue' ? '听完这句话，就轮到你' : listening ? '轮到你说啦' : waiting ? '把这句话记下来' : roundLimitReached() ? (isBackfill?'这次讲好啦':'今天讲好啦') : '我们接着聊'}</div><h1 class="conversation-prompt">${escape(replyPhase==='preparing'&&!prompt?'鸭鸭想好了，马上说给你听。':prompt)}</h1><div class="heard"><span>${listening ? '正在听，停顿也没关系' : liveText ? '刚才还没说完的' : '你刚才说'}</span><p id="live-text">${escape(liveText || words().at(-1) || '说一点点，也可以。')}</p></div><button id="record-toggle" class="primary ${listening ? 'recording' : ''}" ${waiting || roundLimitReached() ? 'disabled' : ''}>${icon(listening ? 'stop' : 'mic')}<span>${listening ? '说好了，按一下' : capture === 'cue' ? '准备好，再开口' : waiting ? '等我一下' : roundLimitReached() ? '这次讲好啦' : '我来说一说'}</span></button><div class="keyboard-cue"><kbd>${roundLimitReached()?'回车':'空格'}</kbd><span>${waiting?(capture==='starting'?'麦克风准备中':replyPhase==='playing'?'先听鸭鸭说，键盘休息一下':'等鸭鸭准备好，键盘休息一下'):roundLimitReached()?'选小本子，记下故事':listening ? '再按一下，停止说话' : '按一下，开始说话'}</span></div><button id="finish-button" class="finish-button" ${(capture !== 'idle'&&capture!=='listening') || aiPending || pendingAudio || (!words().length&&capture!=='listening') ? 'disabled' : ''}>${icon('book')}<span>${isBackfill?'这次讲好啦':'今天讲好啦'}</span><span>→</span></button>${pendingAudio&&capture==='idle'&&!aiPending?'<button id="retry-audio" class="quiet-button">重新听这段录音</button><button id="rerecord" class="quiet-button">重新说这一段</button>':''}${replyError?'<button id="retry-reply" class="quiet-button">重新听鸭鸭的回复</button>':''}${draft.aiError&&!aiPending&&capture==='idle'?'<button id="retry-ai" class="quiet-button">请鸭鸭再接着说</button>':''}</div></section>`;
     $('#record-toggle').onclick = toggleCapture;
     if($('#retry-reply'))$('#retry-reply').onclick=()=>playReply(draft);
     if(replyError){const help=document.createElement('button');help.className='quiet-button';help.textContent='请老师帮忙保存';help.onclick=()=>{replyError=false;silence();beginClosing(false);};$('.talk-column').append(help);}
@@ -273,14 +287,14 @@ function render() {
     $('#finish-button').onclick = finishStory;
   } else if (screen === 'closing') {
     const counting=closingStage==='countdown';
-    $('#main').innerHTML=`<section class="child-scene"><div class="friend-column">${mascot(mood())}</div><div class="talk-column"><p class="chapter">${escape(child.name)}的小故事</p><h1>${closingError?'还没有记好，故事还在。':saving?'正在记进小本子。':aiPending?'我来整理你的小故事。':'今天讲好啦！'}</h1><p class="support">${closingError?escape(closingError):counting?'我会帮你记下来。':'鸭鸭陪着你。'}</p><button id="finish-now" class="primary finish-countdown ${counting?'counting':''}" ${closingStage==='cue'||aiPending||saving?'disabled':''}>${icon('book')}<span>${closingError?'请老师帮忙，再试一次':'今天讲好啦'}</span>${counting?`<span class="countdown-number" aria-hidden="true">${closingSeconds}</span>`:''}</button>${counting&&!roundLimitReached()?'<p class="keyboard-cue"><kbd>空格</kbd>还想说，可以继续</p>':''}${closingError?'<button id="leave-draft" class="quiet-button">先保留草稿，换个人</button>':''}</div></section>`;
+    $('#main').innerHTML=`<section class="child-scene"><div class="friend-column">${mascot(mood())}</div><div class="talk-column"><p class="chapter">${escape(child.name)}的小故事</p><h1>${closingError?'还没有记好，故事还在。':saving?'正在记进小本子。':aiPending?'我来整理你的小故事。':(isBackfill?'这次讲好啦！':'今天讲好啦！')}</h1><p class="support">${closingError?escape(closingError):counting?'我会帮你记下来。':'鸭鸭陪着你。'}</p><button id="finish-now" class="primary finish-countdown ${counting?'counting':''}" ${closingStage==='cue'||aiPending||saving?'disabled':''}>${icon('book')}<span>${closingError?'请老师帮忙，再试一次':(isBackfill?'这次讲好啦':'今天讲好啦')}</span>${counting?`<span class="countdown-number" aria-hidden="true">${closingSeconds}</span>`:''}</button>${counting&&!roundLimitReached()?'<p class="keyboard-cue"><kbd>空格</kbd>还想说，可以继续</p>':''}${closingError?'<button id="leave-draft" class="quiet-button">先保留草稿，换个人</button>':''}</div></section>`;
     $('#finish-now').onclick=()=>completeStory();
     if($('#leave-draft'))$('#leave-draft').onclick=returnToRoster;
   } else if (screen === 'saved') {
     $('#main').innerHTML = `<section class="child-scene"><div class="friend-column">${mascot('happy')}</div><div class="talk-column"><p class="chapter">又多了一个温暖的小故事</p><h1>记好啦，<br>下次再聊！</h1><p class="support">我会在这里，等你的新故事。</p><button class="primary" id="next-child">下一位小朋友<span>→</span></button></div></section>`;
     $('#next-child').onclick = returnToRoster;
   } else {
-    $('#main').innerHTML = `<section class="history-layout"><aside>${mascot('idle',true)}<h1>我们的小故事</h1><button class="quiet-button" id="return-button">${draft ? '回去继续聊 →' : '回到今日头像 →'}</button></aside><div class="record-list">${records.filter(r=>r.child?.id===child?.id).length ? records.filter(r=>r.child?.id===child?.id).map(record => `<article class="paper history-paper"><div class="paper-heading"><span>${escape(record.child?.name ?? '旧版示例')}的鸭鸭日记</span><time>${dateLabel(record.createdAt)}</time></div><div class="paper-title"><h2>我和小鸭的一天</h2><button class="read-button" data-record="${escape(record.id)}" aria-label="听这篇故事">${icon('sound')}</button></div><p class="record-body">${escape(record.text)}</p><details><summary>对话原文</summary>${transcript(record.turns)}</details></article>`).join('') : '<div class="empty-state"><h2>第一段故事，还在等你。</h2><p>和鸭鸭聊一聊，就会有自己的故事啦。</p></div>'}</div></section>`;
+    $('#main').innerHTML = `<section class="history-layout"><aside>${mascot('idle',true)}<h1>我们的小故事</h1><button class="quiet-button" id="return-button">${draft ? '回去继续聊 →' : '回到今日头像 →'}</button></aside><div class="record-list">${records.filter(r=>r.child?.id===child?.id).length ? records.filter(r=>r.child?.id===child?.id).map(record => `<article class="paper history-paper"><div class="paper-heading"><span>${escape(record.child?.name ?? '旧版示例')}的鸭鸭日记</span><time>${dateLabel(recordDate(record)+'T12:00:00')}</time></div><div class="paper-title"><h2>我和小鸭的一天</h2><button class="read-button" data-record="${escape(record.id)}" aria-label="听这篇故事">${icon('sound')}</button></div><p class="record-body">${escape(record.text)}</p><details><summary>对话原文</summary>${transcript(record.turns)}</details></article>`).join('') : '<div class="empty-state"><h2>第一段故事，还在等你。</h2><p>和鸭鸭聊一聊，就会有自己的故事啦。</p></div>'}</div></section>`;
     $('#return-button').onclick = () => draft ? go('conversation') : returnToRoster();
     document.querySelectorAll('[data-record]').forEach(button => { button.onclick = () => say(records.find(record => record.id === button.dataset.record).text,undefined,true); });
   }
@@ -308,7 +322,7 @@ const input = new Recorder({
     if(leaving)return;const owner=draft;
     if(draft.turns.some(turn=>turn.inputId===inputId))return;
     const next=structuredClone(draft);delete next.autoFinish;delete next.endRequested;next.turns.push({role:'child',text,inputId});next.pendingText='';next.aiError=true;delete next.editedText;
-    await update(state=>{state.drafts[child.id]=next;});if(leaving||draft!==owner)return;draft=next;drafts[child.id]=next;liveText='';
+    await update(state=>{putDraft(state.drafts,next);});if(leaving||draft!==owner)return;draft=next;putDraft(drafts,next);liveText='';
   },
   onReady:async()=>{if(leaving)return;pendingAudio=false;await respond();},
   onError:async message=>{stopProcessingHint();const failedDraft=draft;if(!failedDraft)return;const hasAudio=await input.hasPending(`story:${failedDraft.id}`).catch(()=>false);if(draft!==failedDraft||screen!=='conversation')return;pendingAudio=hasAudio;render();notify(message);say(pendingAudio?'刚才没能记好，已经收到的声音先留着。请老师帮忙检查，再选重新听这段。':message);}
@@ -359,13 +373,13 @@ async function respond(){
   clearTimeout(focusTimer);replyError=false;aiPending=true;silence();render();const current=draft,epoch=operationEpoch;operationController=new AbortController();
   beginProcessingHint();
   try{
-    const result=await api('chat',{turns:current.turns,childName:child.name,conversationRounds:current.conversationRounds??configuredRounds},'POST',operationController.signal);
+    const result=await api('chat',{turns:current.turns,childName:child.name,conversationRounds:current.conversationRounds??configuredRounds,activityDate:current.activityDate},'POST',operationController.signal);
     if(epoch!==operationEpoch||leaving)return;
     const reply=result.text||result.reply;if(!reply)throw new Error('鸭鸭没有返回内容');
     const next=structuredClone(current);next.turns.push({role:'assistant',text:reply});next.aiError=false;next.roundComplete=Boolean(result.isFinalRound);next.endRequested=Boolean(result.endConversation);next.autoFinish=next.roundComplete||next.endRequested||finishAfterInput;
-    await update(state=>{state.drafts[next.child.id]=next;});
+    await update(state=>{putDraft(state.drafts,next);});
     if(epoch!==operationEpoch||leaving)return;
-    draft=next;drafts[next.child.id]=next;aiPending=false;playReply(next);
+    draft=next;putDraft(drafts,next);aiPending=false;playReply(next);
   }catch(e){
     stopProcessingHint();if(epoch!==operationEpoch||leaving)return;aiPending=false;render();notify(e.message);
     say('你的话已经留好了，鸭鸭暂时没能接上。可以请老师帮忙，再选请鸭鸭接着说，也可以选小本子结束。');
@@ -427,8 +441,8 @@ async function completeStory(){
   const record={id:current.id,child:{...current.child},activityDate:current.activityDate,createdAt:current.createdAt,text,turns:structuredClone(current.turns),summaryFallback:Boolean(current.summaryFallback)};
   try{
     await syncDraft();
-    await update(next=>{next.records=[record,...next.records.filter(r=>r.id!==record.id)];delete next.drafts[current.child.id];});
-    records=[record,...records.filter(r=>r.id!==record.id)];delete drafts[current.child.id];draft=null;saving=false;closingStage='';go('saved');
+    await update(next=>{next.records=[record,...next.records.filter(r=>r.id!==record.id)];removeDraft(next.drafts,current);});
+    records=[record,...records.filter(r=>r.id!==record.id)];removeDraft(drafts,current);draft=null;saving=false;closingStage='';go('saved');
   }catch(e){saving=false;closingStage='error';closingError='还没保存成功，请先不要关闭。'+e.message;render();say('还没有记好，故事还在。请老师帮忙，再试一次。');$('#finish-now')?.focus();}
 }
 document.addEventListener('keydown',event=>{

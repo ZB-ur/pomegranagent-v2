@@ -100,3 +100,89 @@ dialog[aria-label="裁切头像"] input[type="range"]{padding:4px;min-height:24p
  .selected-roster-list.expanded{max-height:80px}
  .day-editor .day-search-hint{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);margin:0}
 }
+
+/* Student numbers help teachers distinguish children without replacing their names. */
+.student-number{display:inline-block;margin-top:9px;padding:4px 8px;border:1px solid #e6dac0;border-radius:6px;background:#f7efdb;color:#866839;font-size:11px;font-variant-numeric:tabular-nums;max-width:100%;overflow-wrap:anywhere}
+.selected-student-number{font-weight:600;color:#8b713f}
+.day-editor-actions .backfill-entry{background:#f6ebd3;border-color:#dcccaa;color:#765b30}
+.backfill-hint{font-size:10px;line-height:1.4;color:var(--muted);margin-top:4px}
+.pick-child>span{min-width:0}.pick-child small{overflow-wrap:anywhere}
+
+
+/* Compact schedule workspace: selection gets the remaining height. */
+.schedule-view .topbar{height:56px}
+.schedule-view main{padding-top:20px;padding-bottom:20px}
+.schedule-view .toolbar{margin-bottom:18px}
+.schedule-view .calendar-layout{grid-template-columns:minmax(0,1fr) 350px;gap:20px;align-items:start}
+.schedule-view .calendar-panel{display:flex;flex-direction:column;min-height:570px;height:calc(100dvh - 160px)}
+.schedule-view .calendar-grid{flex:1;grid-template-rows:repeat(var(--weeks),minmax(78px,1fr))}
+.schedule-view .calendar-day{min-height:78px;height:auto}
+.schedule-view .calendar-foot{flex-shrink:0;gap:12px;flex-wrap:wrap;padding:10px 12px}
+.schedule-view .calendar-key-hint{margin-left:auto}
+.schedule-view .day-editor{position:sticky;top:16px;height:calc(100dvh - 160px);min-height:570px;padding:15px;gap:0}
+.day-editor-heading{display:flex;align-items:center;gap:8px;flex-shrink:0}
+.day-editor-heading .date-big{font-size:26px;margin:0;white-space:nowrap}
+.day-editor-heading .date-big small{font-size:13px;margin-left:10px}
+.schedule-view .saved-label{margin-top:4px;min-height:16px;font-size:11px}
+.schedule-view .selected-roster{margin:8px 0;padding:8px}
+.schedule-view .selected-roster-heading{margin-bottom:6px}
+.schedule-view .day-match-count{margin:6px 0;font-size:11px}
+.schedule-view .child-picker{flex:1;min-height:0;max-height:none;grid-template-columns:1fr;gap:0;padding:3px;align-content:start;border:1px solid var(--line);border-radius:9px;overflow:auto;scrollbar-gutter:stable}
+.schedule-view .pick-child{border:0;border-bottom:1px solid var(--line);border-radius:0;min-height:47px;padding:6px;gap:8px}
+.schedule-view .pick-child:last-child{border-bottom:0}
+.schedule-view .pick-child .person-avatar{width:30px;height:30px}
+.schedule-view .picker-number{background:#f4ebd8;color:#765b30;border-radius:12px;padding:3px 6px;font-size:12px;max-width:78px;overflow-wrap:anywhere;flex-shrink:0;font-weight:500}
+.schedule-view .picker-name{flex:1;min-width:0}
+.schedule-view .picker-name strong{font-size:12px;line-height:1.4;overflow-wrap:anywhere}
+.schedule-view .picker-name small{font-size:10px;margin-top:1px;color:var(--muted)}
+.schedule-view .day-editor-actions{display:flex;gap:8px;padding-top:12px;margin-top:10px;flex-shrink:0}
+.schedule-view .day-editor-actions>.button{flex:1;margin:0;min-height:40px;padding:9px 10px;white-space:nowrap}
+.selected-all-list{max-height:55dvh;overflow:auto;margin-top:12px;padding:4px}
+.selected-all-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line)}
+.selected-all-row>span{flex:1;min-width:0;overflow-wrap:anywhere;font-size:13px}
+.selected-all-row>button{flex-shrink:0}
+@media(min-width:941px) and (max-height:759px){
+ .schedule-view main{padding-top:14px;padding-bottom:12px}
+ .schedule-view .toolbar{margin-bottom:12px}
+ .schedule-view .day-editor,.schedule-view .calendar-panel{height:calc(100dvh - 138px);min-height:540px}
+ .schedule-view .calendar-key-hint{display:none}
+}
+@media(min-width:941px) and (max-width:1100px){.schedule-view .calendar-layout{grid-template-columns:minmax(0,1fr) 330px;gap:14px}}
+#day-drawer{padding:0;border-radius:16px 0 0 16px;margin:0 0 0 auto;height:100dvh;max-height:100dvh;width:min(420px,100vw);max-width:100vw;border:0;overflow:hidden}
+#day-drawer:not([open]){display:none}
+#day-drawer .day-editor{height:100%;min-height:0;position:static;border:0;border-radius:0;padding:20px 16px}
+@media(max-width:940px){
+ .schedule-view .calendar-layout{grid-template-columns:1fr}
+ .schedule-view .calendar-panel{height:auto;min-height:0}
+ .schedule-view .calendar-day{min-height:90px}
+ .schedule-view .calendar-key-hint{display:none}
+ .schedule-view .toolbar{gap:12px;flex-wrap:wrap}
+ .schedule-view .toolbar>.row{flex-wrap:wrap}
+ .schedule-view .child-picker{grid-template-columns:1fr}
+}
+
+/* One reuse entry, with the selected-day scope made explicit. */
+.schedule-reuse{position:relative}
+.schedule-reuse summary{list-style:none;cursor:pointer;white-space:nowrap}
+.schedule-reuse summary::-webkit-details-marker{display:none}
+.reuse-options{position:absolute;right:0;top:calc(100% + 6px);width:236px;padding:8px;background:var(--paper);border:1px solid var(--line);border-radius:12px;box-shadow:0 8px 28px #342b2320;z-index:5}
+.reuse-options p{font-size:11px;color:var(--muted);padding:8px 10px;border-bottom:1px solid var(--line);margin-bottom:4px}
+.reuse-options button{display:block;width:100%;padding:12px 10px;text-align:left;font-size:12px;border-radius:7px}
+.reuse-options button:hover{background:#edf1e7}
+.day-editor-heading #close-day{margin-left:auto}
+.schedule-view .child-picker{border:0;background:#fbfaf6;padding:3px;gap:3px}
+.schedule-view .pick-child{min-height:44px;padding:5px 8px;border:0;border-radius:8px;background:transparent;gap:9px}
+.schedule-view .pick-child:hover{background:#f0f0e7}
+.schedule-view .pick-child:has(input:checked){background:#edf2e7}
+.schedule-view .pick-child input{width:16px;height:16px}
+.schedule-view .picker-number{width:32px;min-width:32px;max-width:72px;flex:0 0 auto;padding:4px 3px;border-radius:7px;background:#f4e9d1;color:#806138;text-align:center;font-size:12px;font-weight:600;font-variant-numeric:tabular-nums;line-height:1.2;overflow-wrap:anywhere}
+.schedule-view .picker-name strong{font-weight:500;color:#443f35}
+.schedule-view .picker-name small{color:#8c877b}
+.schedule-view .selected-child{padding:4px 5px;gap:5px;border-color:#e0e5d7;background:#fffdf7;border-radius:8px;min-height:29px}
+.schedule-view .selected-identity{display:flex;align-items:center;gap:7px;min-width:0;flex:1;overflow:hidden}
+.schedule-view .selected-student-number{display:inline-block;min-width:25px;max-width:58px;padding:3px 4px;border-radius:5px;background:#f4e9d1;color:#806138;font-size:11px;font-weight:600;line-height:1;text-align:center;font-variant-numeric:tabular-nums;overflow:hidden;text-overflow:ellipsis;flex-shrink:0}
+.schedule-view .selected-name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:11px;color:#494b3e}
+.schedule-view .selected-remove{display:grid;place-items:center;flex-shrink:0;width:18px;height:18px;border-radius:4px;font-size:14px;color:#8e9584}
+.schedule-view .selected-child:hover .selected-remove{background:#e6eadf;color:#58654d}
+
+.schedule-view .picker-number-slot{width:32px;flex:0 0 32px}
