@@ -1,0 +1,34 @@
+{
+  "source": "https://freesound.org/people/Mistovermoon/sounds/437327/",
+  "author": "Mistovermoon",
+  "license": "CC0-1.0",
+  "source_format": "Freesound public HQ MP3 preview",
+  "crop_seconds": [
+    25.26,
+    25.67
+  ],
+  "processing": {
+    "sample_rate": 24000,
+    "channels": 1,
+    "highpass_hz": 500,
+    "lowpass_hz": 5600,
+    "fade_ms": 12,
+    "join_silence_ms": 90,
+    "gain": 2.6444042871107962,
+    "peak_dbfs": -13.0,
+    "rms_dbfs": -32.85124417276384,
+    "filter": "129-tap Hamming-windowed sinc lowpass minus 500Hz lowpass; centered convolution"
+  },
+  "files": {
+    "prefix": {
+      "duration": 0.5,
+      "sha256": "a554c9256e81c2f2ce0b8a65a1755ac54d6eaf0332b6b132f04e9db7e389c085"
+    },
+    "suffix": {
+      "duration": 0.5,
+      "sha256": "dbf1289386bd8818b21f8966a8dfd795bcbabbf4f8521d61ffc018cb2477ad42"
+    }
+  },
+  "download_url": "https://cdn.freesound.org/previews/437/437327_4568625-hq.mp3",
+  "source_sha256": "d5c6e4e015bc92d1963e4dd70661061ea9cc61dd3ecfd5f1a784022ff34b53cb"
+}

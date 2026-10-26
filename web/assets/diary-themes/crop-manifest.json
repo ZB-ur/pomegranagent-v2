@@ -1,0 +1,402 @@
+{
+  "budgerigar": [
+    {
+      "name": "idle",
+      "source_rect": [
+        81,
+        14,
+        378,
+        431
+      ],
+      "output_size": [
+        512,
+        512
+      ],
+      "placement": [
+        107,
+        55
+      ],
+      "detail_size": [
+        297,
+        417
+      ],
+      "resampled": false
+    },
+    {
+      "name": "listening",
+      "source_rect": [
+        464,
+        16,
+        794,
+        426
+      ],
+      "output_size": [
+        512,
+        512
+      ],
+      "placement": [
+        91,
+        62
+      ],
+      "detail_size": [
+        330,
+        410
+      ],
+      "resampled": false
+    },
+    {
+      "name": "speaking",
+      "source_rect": [
+        841,
+        16,
+        1215,
+        428
+      ],
+      "output_size": [
+        512,
+        512
+      ],
+      "placement": [
+        69,
+        60
+      ],
+      "detail_size": [
+        374,
+        412
+      ],
+      "resampled": false
+    },
+    {
+      "name": "happy",
+      "source_rect": [
+        39,
+        435,
+        374,
+        836
+      ],
+      "output_size": [
+        512,
+        512
+      ],
+      "placement": [
+        88,
+        71
+      ],
+      "detail_size": [
+        335,
+        401
+      ],
+      "resampled": false
+    },
+    {
+      "name": "acknowledging",
+      "source_rect": [
+        495,
+        442,
+        775,
+        837
+      ],
+      "output_size": [
+        512,
+        512
+      ],
+      "placement": [
+        116,
+        77
+      ],
+      "detail_size": [
+        280,
+        395
+      ],
+      "resampled": false
+    },
+    {
+      "name": "writing",
+      "source_rect": [
+        888,
+        435,
+        1225,
+        836
+      ],
+      "output_size": [
+        512,
+        512
+      ],
+      "placement": [
+        87,
+        71
+      ],
+      "detail_size": [
+        337,
+        401
+      ],
+      "resampled": false
+    },
+    {
+      "name": "inviting",
+      "source_rect": [
+        32,
+        838,
+        391,
+        1232
+      ],
+      "output_size": [
+        512,
+        512
+      ],
+      "placement": [
+        76,
+        78
+      ],
+      "detail_size": [
+        359,
+        394
+      ],
+      "resampled": false
+    },
+    {
+      "name": "navigation",
+      "source_rect": [
+        479,
+        849,
+        809,
+        1238
+      ],
+      "output_size": [
+        512,
+        512
+      ],
+      "placement": [
+        91,
+        83
+      ],
+      "detail_size": [
+        330,
+        389
+      ],
+      "resampled": false
+    },
+    {
+      "name": "animal-default",
+      "source_rect": [
+        913,
+        839,
+        1218,
+        1235
+      ],
+      "output_size": [
+        512,
+        512
+      ],
+      "placement": [
+        103,
+        76
+      ],
+      "detail_size": [
+        305,
+        396
+      ],
+      "resampled": false
+    }
+  ],
+  "hamster": [
+    {
+      "name": "idle",
+      "source_rect": [
+        60,
+        46,
+        381,
+        428
+      ],
+      "output_size": [
+        512,
+        512
+      ],
+      "placement": [
+        95,
+        90
+      ],
+      "detail_size": [
+        321,
+        382
+      ],
+      "resampled": false
+    },
+    {
+      "name": "listening",
+      "source_rect": [
+        452,
+        48,
+        775,
+        426
+      ],
+      "output_size": [
+        512,
+        512
+      ],
+      "placement": [
+        94,
+        94
+      ],
+      "detail_size": [
+        323,
+        378
+      ],
+      "resampled": false
+    },
+    {
+      "name": "speaking",
+      "source_rect": [
+        848,
+        47,
+        1197,
+        428
+      ],
+      "output_size": [
+        512,
+        512
+      ],
+      "placement": [
+        81,
+        91
+      ],
+      "detail_size": [
+        349,
+        381
+      ],
+      "resampled": false
+    },
+    {
+      "name": "happy",
+      "source_rect": [
+        49,
+        455,
+        389,
+        831
+      ],
+      "output_size": [
+        512,
+        512
+      ],
+      "placement": [
+        86,
+        96
+      ],
+      "detail_size": [
+        340,
+        376
+      ],
+      "resampled": false
+    },
+    {
+      "name": "acknowledging",
+      "source_rect": [
+        477,
+        447,
+        799,
+        834
+      ],
+      "output_size": [
+        512,
+        512
+      ],
+      "placement": [
+        95,
+        85
+      ],
+      "detail_size": [
+        322,
+        387
+      ],
+      "resampled": false
+    },
+    {
+      "name": "writing",
+      "source_rect": [
+        883,
+        452,
+        1209,
+        835
+      ],
+      "output_size": [
+        512,
+        512
+      ],
+      "placement": [
+        93,
+        89
+      ],
+      "detail_size": [
+        326,
+        383
+      ],
+      "resampled": false
+    },
+    {
+      "name": "inviting",
+      "source_rect": [
+        55,
+        843,
+        384,
+        1223
+      ],
+      "output_size": [
+        512,
+        512
+      ],
+      "placement": [
+        91,
+        92
+      ],
+      "detail_size": [
+        329,
+        380
+      ],
+      "resampled": false
+    },
+    {
+      "name": "navigation",
+      "source_rect": [
+        435,
+        842,
+        803,
+        1229
+      ],
+      "output_size": [
+        512,
+        512
+      ],
+      "placement": [
+        72,
+        85
+      ],
+      "detail_size": [
+        368,
+        387
+      ],
+      "resampled": false
+    },
+    {
+      "name": "animal-default",
+      "source_rect": [
+        878,
+        841,
+        1201,
+        1221
+      ],
+      "output_size": [
+        512,
+        512
+      ],
+      "placement": [
+        94,
+        92
+      ],
+      "detail_size": [
+        323,
+        380
+      ],
+      "resampled": false
+    }
+  ]
+}

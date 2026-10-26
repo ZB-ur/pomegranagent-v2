@@ -26,9 +26,14 @@ MAX_BODY = 64 * 1024 * 1024
 MAX_AUDIO = 24 * 1024 * 1024
 FORMAT = 'penegranagent-v2-backup'
 EMPTY = {'revision': 0, 'data': {'children': [], 'ducks': [], 'schedules': {}}, 'records': [], 'drafts': {}}
-SETTING_KEYS = ('providerBaseUrl', 'chatModel', 'transcriptionModel', 'speechModel', 'voice')
+SETTING_KEYS = ('providerBaseUrl', 'chatModel', 'transcriptionModel', 'speechModel', 'voice', 'diaryThemeId')
 DEFAULT_CONVERSATION_ROUNDS = 3
 DEFAULT_SPEECH_RATE = 1.05
+THEMES = {'duck': ('鸭鸭', '小鸭'), 'budgerigar': ('鹦鹉', '虎皮鹦鹉'), 'hamster': ('仓鼠', '金丝熊')}
+
+def theme_id(value):
+    return value if isinstance(value, str) and value in THEMES else 'duck'
+
 FINAL_ROUND_CLOSING = '你的故事讲好啦，我帮你记下来。'
 PROMPT = '''你是陪孩子聊天的鸭鸭，亲切、有兴趣，也愿意认真欣赏孩子。根据当前内容和前文自然接话，让孩子感到自己的分享值得被听见。
 普通交流要充分展开，通常四到六句，约一百到一百八十字。围绕孩子的分享，具体说说欣赏哪里、回应他的想法或尝试，再自然聊开一点，让每句话都有新的交流内容。不要只回一句感叹或笼统肯定，也不要靠反复复述凑长度。孩子明确结束或只需确认纠正时，可按实际需要收住。
@@ -108,7 +113,7 @@ def valid_date(value):
 
 def validate_profile(item, snapshot=False):
     if not isinstance(item, dict):
-        raise APIError(400, '幼儿或小鸭资料必须是对象。')
+        raise APIError(400, '幼儿或动物资料必须是对象。')
     string_field(item, 'id', 128, True)
     if item['id'] in ('__proto__', 'prototype', 'constructor'):
         raise APIError(400, '档案编号无效。')
@@ -149,6 +154,8 @@ def validate_profile(item, snapshot=False):
 def validate_conversation(item, child_ids, record=False):
     if not isinstance(item, dict):
         raise APIError(400, '草稿或记录结构无效。')
+    if 'themeId' in item and item['themeId'] not in THEMES:
+        raise APIError(400, '日记装修无效。')
     string_field(item, 'id', 128, True)
     child = item.get('child')
     validate_profile(child, snapshot=True)
@@ -169,7 +176,7 @@ def validate_conversation(item, child_ids, record=False):
         raise APIError(400, '原始对话必须是有效列表。')
     for turn in turns:
         if not isinstance(turn, dict) or turn.get('role') not in ('child', 'assistant'):
-            raise APIError(400, '原始对话必须区分幼儿与鸭鸭发言。')
+            raise APIError(400, '原始对话必须区分幼儿与主持人发言。')
         string_field(turn, 'text', 60000, True)
     if record:
         string_field(item, 'text', 200000, True)
@@ -196,7 +203,7 @@ def validate_state(state):
     data = state['data']
     if not isinstance(data, dict) or set(data) != {'children', 'ducks', 'schedules'}:
         raise APIError(400, '档案结构无效。')
-    for name, items in [('幼儿', data['children']), ('小鸭', data['ducks']), ('记录', state['records'])]:
+    for name, items in [('幼儿', data['children']), ('动物', data['ducks']), ('记录', state['records'])]:
         if not isinstance(items, list) or len(items) > 50000:
             raise APIError(400, name + '列表无效。')
         ids = set()
@@ -234,7 +241,7 @@ def validate_state(state):
         validate_conversation(record, child_ids, record=True)
         duck_id = record.get('duckId')
         if duck_id is not None and (not isinstance(duck_id, str) or duck_id not in duck_ids):
-            raise APIError(400, '关联的小鸭不存在，请选择已有档案或留空。')
+            raise APIError(400, '关联的动物不存在，请选择已有档案或留空。')
     return state
 
 
@@ -266,7 +273,7 @@ class Store:
         with self.connect() as db:
             return json.loads(db.execute('SELECT body FROM state WHERE id=1').fetchone()[0])
 
-    def save(self, state, restore=False):
+    def save(self, state, restore=False, preferences=None):
         validate_state(state)
         with self.connect() as db:
             db.execute('BEGIN IMMEDIATE')
@@ -277,7 +284,7 @@ class Store:
                 incoming = {record['id']: record for record in state['records']}
                 for previous in current['records']:
                     record = incoming.get(previous['id'])
-                    if record is None or any(record.get(key) != previous.get(key) for key in ('turns', 'createdAt', 'activityDate')) or record['child']['id'] != previous['child']['id']:
+                    if record is None or any(record.get(key) != previous.get(key) for key in ('turns', 'createdAt', 'activityDate', 'themeId')) or record['child']['id'] != previous['child']['id']:
                         raise APIError(409, '已有记录的原始对话和归属必须保留；教师可修改整理后的文字。')
             if restore:
                 # Write and fsync the old snapshot before touching the database.
@@ -285,11 +292,15 @@ class Store:
                 backups.mkdir(exist_ok=True, mode=0o700)
                 target = backups / (dt.datetime.now().strftime('%Y%m%d-%H%M%S-') + uuid.uuid4().hex[:8] + '.json')
                 with target.open('xb') as output:
-                    output.write(encode(backup(current)))
+                    output.write(encode(backup(current, json.loads(db.execute('SELECT body FROM settings WHERE id=1').fetchone()[0]))))
                     output.flush()
                     os.fsync(output.fileno())
                 if os.name != 'nt':
                     os.chmod(target, 0o600)
+            if restore:
+                settings = json.loads(db.execute('SELECT body FROM settings WHERE id=1').fetchone()[0])
+                settings['diaryThemeId'] = theme_id((preferences or {}).get('diaryThemeId'))
+                db.execute('UPDATE settings SET body=? WHERE id=1', (encode(settings).decode(),))
             state = {**state, 'revision': current['revision'] + 1}
             db.execute('UPDATE state SET body=? WHERE id=1', (encode(state).decode(),))
         return state
@@ -333,6 +344,7 @@ class Store:
 
 def public_settings(settings):
     result = {key: settings.get(key, '') for key in SETTING_KEYS}
+    result['diaryThemeId'] = theme_id(settings.get('diaryThemeId'))
     result['conversationRounds'] = settings.get('conversationRounds', DEFAULT_CONVERSATION_ROUNDS)
     result['speechRate'] = settings.get('speechRate', DEFAULT_SPEECH_RATE)
     result['hasApiKey'] = bool(settings.get('apiKey'))
@@ -343,8 +355,8 @@ def public_settings(settings):
     return result
 
 
-def backup(state):
-    return {'format': FORMAT, 'version': 1, 'exportedAt': dt.datetime.now(dt.timezone.utc).isoformat(), 'state': state}
+def backup(state, settings=None):
+    return {'format': FORMAT, 'version': 1, 'exportedAt': dt.datetime.now(dt.timezone.utc).isoformat(), 'state': state, 'preferences': {'diaryThemeId': theme_id((settings or {}).get('diaryThemeId'))}}
 
 
 class NoRedirect(HTTPRedirectHandler):
@@ -474,7 +486,7 @@ class Handler(BaseHTTPRequestHandler):
                 if path == '/api/health':
                     return self.reply(200, {'ok': True, 'platform': platform.system(), 'release': platform.release(), 'architecture': platform.machine(), 'python': platform.python_version(), 'dataDirectory': str(store.directory), 'configured': self.settings_status(store.settings())['configured'], 'localVoice': self.server.local_voice.status()})
                 if path == '/api/backup':
-                    return self.reply(200, backup(store.state()), extra={'Content-Disposition': 'attachment; filename="penegranagent-v2-backup.json"'})
+                    return self.reply(200, backup(store.state(), store.settings()), extra={'Content-Disposition': 'attachment; filename="penegranagent-v2-backup.json"'})
                 if path.startswith('/api/'):
                     raise APIError(404, '没有这个接口。')
                 return self.static(path)
@@ -487,7 +499,7 @@ class Handler(BaseHTTPRequestHandler):
                 value = self.json_body()
                 if value.get('format') != FORMAT or value.get('version') != 1 or 'state' not in value:
                     raise APIError(400, '这不是本应用支持的备份文件，未修改资料。')
-                return self.reply(200, store.save(value['state'], restore=True))
+                return self.reply(200, store.save(value['state'], restore=True, preferences=value.get('preferences')))
             if self.command == 'POST' and path in ('/api/chat', '/api/summary', '/api/speech', '/api/transcribe'):
                 return self.ai(path, store.settings())
             raise APIError(404, '没有这个接口。')
@@ -548,6 +560,10 @@ class Handler(BaseHTTPRequestHandler):
         if not isinstance(turns, list) or not 1 <= len(turns) <= 200:
             raise APIError(400, '对话内容为空或过长。')
         messages = [{'role': 'system', 'content': SUMMARY_PROMPT if path == '/api/summary' else PROMPT}]
+        if path == '/api/chat':
+            host, animal = THEMES[theme_id(value.get('themeId'))]
+            messages[0]['content'] = PROMPT.replace('鸭鸭', host).replace('实际小鸭', '实际动物')
+            messages[0]['content'] += f'\n你是{host}，本次装修默认搭配{animal}。主持人与你们实际照顾的动物是独立概念。孩子可以讲任何动物，忠实接住，不纠正为默认动物、不假定动物类型，不把你的主持人身份写成实际照顾对象。'
         total = 0
         for turn in turns:
             if not isinstance(turn, dict) or turn.get('role') not in ('child', 'assistant', 'system') or not isinstance(turn.get('text'), str) or not turn['text'].strip():
@@ -633,10 +649,10 @@ class Handler(BaseHTTPRequestHandler):
             except (ValueError, TypeError):
                 # Keep diagnostics useful without recording a child's words or keys.
                 print('AI chat response rejected: invalid JSON envelope or fields.', file=sys.stderr, flush=True)
-                raise APIError(502, '鸭鸭这次的回应没有准备好，请重试。') from None
+                raise APIError(502, '这次的回应没有准备好，请重试。') from None
             text = reply_without_follow_up(content['reply'])
             if not text:
-                raise APIError(502, '鸭鸭这次还没准备好回应，请重试。')
+                raise APIError(502, '这次还没准备好回应，请重试。')
             # Only the app can announce a completed durable save.
             text = re.sub(r'[^。！？!?\n]*(?:记下来了|记好了|保存好了|保存成功|已经保存)[^。！？!?\n]*[。！？!?\n]*', '', text).strip() or '我听到啦。'
             text = duck_reply(text)

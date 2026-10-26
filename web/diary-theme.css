@@ -1,0 +1,17 @@
+body{min-height:100dvh}
+/* The saved teacher decoration supplies the appearance of every teacher page. */
+body[data-theme='budgerigar']{--bg:#f3f7eb;--paper:#fdfff9;--ink:#324e3b;--muted:#687b65;--sage:#4d7655;--line:#d4dfca;--theme-side:#eaf0e1;--theme-soft:#e3ecd9;--theme-selected:#edf3e5;background:var(--bg);color:var(--ink)}
+body[data-theme='hamster']{--bg:#fbf0e7;--paper:#fffbf7;--ink:#614236;--muted:#947866;--sage:#a56349;--line:#ebd8c9;--theme-side:#f2e4d9;--theme-soft:#ead5c7;--theme-selected:#f7e9de;background:var(--bg);color:var(--ink)}
+body:not([data-theme='duck']) .sidebar{background:var(--theme-side)}
+body:not([data-theme='duck']) .topbar,body:not([data-theme='duck']) input,body:not([data-theme='duck']) textarea,body:not([data-theme='duck']) select{background:var(--paper)}
+body:not([data-theme='duck']) nav a[aria-current],body:not([data-theme='duck']) .selected-roster,body:not([data-theme='duck']) .pick-child:has(input:checked),body:not([data-theme='duck']) .calendar-day.selected{background:var(--theme-selected);color:var(--ink);border-color:var(--line)}
+body:not([data-theme='duck']) .calendar-day.selected{box-shadow:inset 0 0 0 2px var(--sage)}
+body:not([data-theme='duck']) .weekdays,body:not([data-theme='duck']) .calendar-day.weekend,body:not([data-theme='duck']) .calendar-day.outside{background:var(--bg)}
+body:not([data-theme='duck']) .brand-icon,body:not([data-theme='duck']) .day-chip{background:var(--theme-soft);color:var(--ink)}
+body:not([data-theme='duck']) .button.primary:hover{background:var(--sage);filter:brightness(.93)}
+body:not([data-theme='duck']) .settings-card{background:var(--paper)}
+.brand-icon{overflow:hidden}.brand-icon img{width:42px;height:42px;object-fit:contain}
+.workspace-host{display:block;width:90px;height:100px;object-fit:contain;margin:0 0 10px -7px}
+body.settings-body:not([data-theme='duck']) .settings-nav nav a[aria-current]{background:var(--theme-selected);border-color:var(--line);color:var(--ink)}
+body.settings-body:not([data-theme='duck']) .theme-card:has(input:checked){border-color:var(--sage);background:var(--theme-selected);box-shadow:inset 0 0 0 1px var(--sage)}
+body.settings-body:not([data-theme='duck']) .settings-card{border-color:var(--line)}

@@ -284,3 +284,14 @@ summary { font-size: 14px; cursor: pointer; color: #8a6e50; min-height: 26px; }
 .activity-banner strong{font-size:17px}.activity-banner a{margin-left:auto;color:inherit;text-underline-offset:3px}
 body:has(.activity-banner) .child-scene{min-height:calc(100dvh - 250px)}
 @media(max-width:799px){.activity-banner{margin:0 16px 12px;flex-wrap:wrap}.student-badge b{font-size:20px}.identity-strip{flex-wrap:wrap}}
+
+/* A decoration changes the host, while the class and diary stay shared. */
+body[data-theme='budgerigar']{--accent:#4d7655;--ink:#324e3b;--muted:#687b65;--line:#d4dfca;background:#f3f7eb;color:var(--ink)}
+body[data-theme='hamster']{--accent:#a56349;--ink:#614236;--muted:#947866;--line:#ebd8c9;background:#fbf0e7;color:var(--ink)}
+.theme-mascot{aspect-ratio:.79}
+.theme-pose{position:absolute;left:50%;top:90%;width:var(--pose-width);height:auto;max-width:none;translate:-50% -92.1875%;object-fit:contain;transform-origin:50% 92.1875%;opacity:0;transition:opacity .26s ease;pointer-events:none}
+.theme-mascot[data-mood='idle'] .theme-pose-idle,.theme-mascot[data-mood='listening'] .theme-pose-listening,.theme-mascot[data-mood='speaking'] .theme-pose-speaking,.theme-mascot[data-mood='happy'] .theme-pose-happy,.theme-mascot[data-mood='writing'] .theme-pose-writing,.theme-mascot[data-mood='acknowledging'] .theme-pose-acknowledging,.theme-mascot[data-mood='inviting'] .theme-pose-inviting{opacity:1;animation:breathe 4s ease-in-out infinite}
+.theme-mascot[data-mood='speaking']:not([data-voice-paused='true']) .theme-pose-speaking{animation:speak .65s ease-in-out infinite}
+.theme-mascot[data-mood='listening'] .theme-pose-listening{animation:listen 3.6s ease-in-out infinite}
+.theme-mascot[data-mood='writing'] .theme-pose-writing{animation:duck-write 2.6s ease-in-out infinite}
+@media(prefers-reduced-motion:reduce){.theme-mascot .theme-pose{animation:none!important;transition:none}}

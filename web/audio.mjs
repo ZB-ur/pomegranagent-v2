@@ -1,3 +1,4 @@
+import { getDiaryTheme } from './diary-themes.mjs';
 // Real audio only. Session ownership fences late permissions, recording and network callbacks.
 export const handlesSpace = e => e.code === 'Space' && !e.repeat && !e.isComposing && !e.altKey && !e.ctrlKey && !e.metaKey && !e.target.closest?.('input,textarea,select,[contenteditable="true"]');
 let database;
@@ -244,7 +245,7 @@ export class Speaker {
       const response = await fetch('/api/settings', {signal:controller.signal});
       if (!response.ok) throw await responseError(response, '还没读到声音设置，请重试。');
       const value = await response.json();
-      const key = JSON.stringify([value.voice, value.speechRate]);
+      const key = JSON.stringify([value.voice, value.speechRate, this.themeId]);
       if (signal.aborted) throw new DOMException('Stopped', 'AbortError');
       if (this.settingsKey !== key) { this.dropCache(); this.settingsKey = key; }
     } catch (error) {
@@ -261,8 +262,8 @@ export class Speaker {
     let timedOut = false;
     const timer = setTimeout(() => { timedOut = true; controller.abort(); }, 60000);
     try {
-      const response = await fetch('/api/speech', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({text}), signal:controller.signal});
-      if (!response.ok) throw await responseError(response, '语音引导还没准备好，请老师检查本机语音后，点鸭鸭重听。');
+      const response = await fetch('/api/speech', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({text,themeId:this.themeId}), signal:controller.signal});
+      if (!response.ok) throw await responseError(response, '语音引导还没准备好，请老师检查本机语音后，点聊天小伙伴重听。');
       const blob = await response.blob();
       if (signal.aborted) throw new DOMException('Stopped', 'AbortError');
       const url = URL.createObjectURL(blob);
@@ -270,7 +271,7 @@ export class Speaker {
       this.cache.set(text, url);
       return url;
     } catch (error) {
-      if (timedOut) throw new Error('准备声音等待太久了，请老师检查本机服务，再点鸭鸭重听。');
+      if (timedOut) throw new Error('准备声音等待太久了，请老师检查本机服务，再点聊天小伙伴重听。');
       throw error;
     } finally { clearTimeout(timer); signal.removeEventListener('abort', abort); }
   }
@@ -286,6 +287,7 @@ export class Speaker {
     this.stop(); const epoch = this.epoch; const controller = this.controller = new AbortController();
     const current = () => epoch === this.epoch && !controller.signal.aborted;
     const requestedAt = performance.now();
+    const callDirectory = getDiaryTheme(this.themeId).callDirectory;
     let previousEndedAt = null;
     const chunks = [];
     for (const sentence of String(text).match(/[^。！？!?\n]+[。！？!?\n]*|[。！？!?\n]+/g) || []) {
@@ -301,7 +303,7 @@ export class Speaker {
     const fail = error => {
       if (!current() || error.name === 'AbortError') return;
       controller.abort(); this.audio?.pause(); this.onState(false); playback.onError?.();
-      this.onError(error.name === 'NotAllowedError' ? '点一下鸭鸭，开启声音引导。' : error.message);
+      this.onError(error.name === 'NotAllowedError' ? '点一下聊天小伙伴，开启声音引导。' : error.message);
     };
     // Resolve lookahead failures into values so a failed future chunk cannot
     // reject unhandled or interrupt the sentence that is already playing.
@@ -311,7 +313,7 @@ export class Speaker {
       const entry = {ready:false};
       prepared.set(index,entry);
       const chunk=chunks[index];
-      const source=chunk.cue ? Promise.resolve('/assets/duck-call/'+chunk.cue+'.wav') : this.prepare(chunk.text, controller.signal);
+      const source=chunk.cue ? Promise.resolve(callDirectory+'/'+chunk.cue+'.wav') : this.prepare(chunk.text, controller.signal);
       entry.promise = source.then(url => {
         const audio = new Audio(url); audio.preload = 'auto'; audio.load();
         entry.ready = true; return {audio};
@@ -342,10 +344,10 @@ export class Speaker {
         if (next) void play(index + 1, next).catch(fail);
         else { this.audio = null; this.onState(false); onDone?.(); }
       };
-      audio.onerror = () => fail(new Error('声音没有播出来，请老师检查扬声器，再点鸭鸭重听。'));
+      audio.onerror = () => fail(new Error('声音没有播出来，请老师检查扬声器，再点聊天小伙伴重听。'));
       let timer;
       try {
-        await Promise.race([audio.play(), new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('浏览器还没有开始播放，请老师打开这个页面，再点鸭鸭重听。')), 15000); })]);
+        await Promise.race([audio.play(), new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('浏览器还没有开始播放，请老师打开这个页面，再点聊天小伙伴重听。')), 15000); })]);
       } finally { clearTimeout(timer); }
     };
     try {
