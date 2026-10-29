@@ -53,11 +53,29 @@ const same=(a,b)=>{
 const object=value=>value!==null&&typeof value==='object'&&!Array.isArray(value);
 function conflict() { const error=new Error('另一页面也修改了这份内容。当前编辑仍保留，请先复制需要保留的文字，再重新打开核对；本次没有覆盖资料。');error.status=409;return error; }
 function merge(base,local,remote,path=[]) {
+  if(path[0]==='drafts'&&path.length===2) {
+    // Server-owned context is not an edit to the child's conversation. It may
+    // arrive between queued saves; keep transcript edits atomic nevertheless.
+    const editable=value=>{
+      if(!object(value))return value;
+      const {dialogueBackground,...rest}=value;return rest;
+    };
+    const b=editable(base),l=editable(local),r=editable(remote);
+    if(same(l,b))return structuredClone(remote);
+    if(same(r,b)||same(l,r)) {
+      const result=structuredClone(local);
+      if(object(result)&&object(remote)&&result.id===remote.id&&result.child?.id===remote.child?.id&&result.activityDate===remote.activityDate) {
+        if(remote.dialogueBackground)result.dialogueBackground=structuredClone(remote.dialogueBackground);
+        else delete result.dialogueBackground;
+      }
+      return result;
+    }
+    throw conflict();
+  }
   if(same(local,base))return structuredClone(remote);
   if(same(remote,base)||same(local,remote))return structuredClone(local);
   // A child's in-progress conversation is indivisible: never splice two
   // independently edited conversations or attach one window's reply to another.
-  if(path[0]==='drafts'&&path.length===2)throw conflict();
   if(object(base)&&object(local)&&object(remote)) {
     const result=Object.create(null);
     for(const key of new Set([...Object.keys(base),...Object.keys(local),...Object.keys(remote)])) {

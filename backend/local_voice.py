@@ -3,9 +3,12 @@ from __future__ import annotations
 
 import importlib.util
 import io
+import json
 from pathlib import Path
 import re
 import threading
+import time
+import sys
 import wave
 from collections import OrderedDict
 
@@ -104,6 +107,19 @@ class LocalVoice:
         return self._tts
 
     def transcribe(self, audio: bytes, mime: str) -> str:
+        started = time.monotonic()
+        metrics = {"event": "local_asr", "outcome": "error"}
+        try:
+            text = self._transcribe(audio, mime, metrics)
+            metrics["outcome"] = "ok" if text else "empty"
+            return text
+        finally:
+            # Diagnostics never include audio, recognized words or identity.
+            metrics["totalMs"] = round((time.monotonic() - started) * 1000)
+            print(json.dumps(metrics), file=sys.stderr, flush=True)
+
+    def _transcribe(self, audio: bytes, mime: str, metrics: dict) -> str:
+        decode_started = time.monotonic()
         import av
         import numpy as np
         if not audio or len(audio) > 32 * 1024 * 1024:
@@ -127,13 +143,21 @@ class LocalVoice:
         if not chunks:
             raise ValueError("没有收到录音，请重新试一次。")
         samples = np.concatenate(chunks).astype(np.float32)
+        metrics["audioMs"] = round(len(samples) / 16)
+        metrics["decodeMs"] = round((time.monotonic() - decode_started) * 1000)
         if len(samples) < 1600 or float(np.max(np.abs(samples))) < 0.001:
             return ""
+        queued = time.monotonic()
         with self._asr_lock:
+            metrics["queueMs"] = round((time.monotonic() - queued) * 1000)
+            load_started = time.monotonic()
             recognizer = self._load_asr()
+            metrics["loadMs"] = round((time.monotonic() - load_started) * 1000)
+            recognize_started = time.monotonic()
             stream = recognizer.create_stream()
             stream.accept_waveform(16000, samples)
             recognizer.decode_stream(stream)
+            metrics["recognizeMs"] = round((time.monotonic() - recognize_started) * 1000)
             return re.sub(r"<\|[^|]*\|>", "", stream.result.text).strip()
 
     def speak(self, text: str, voice: str = "", speed: float = 1.05) -> bytes:

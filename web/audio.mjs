@@ -177,9 +177,24 @@ export class Recorder {
       let timedOut = false;
       const timer = setTimeout(() => { timedOut = true; session.controller.abort(); }, 90000);
       try {
-        const response = await fetch('/api/transcribe', {method: 'POST', headers: {'Content-Type': data.blob.type}, body: data.blob, signal: session.controller.signal});
-        if (!response.ok) throw await responseError(response, '暂时没有听清，录音保留了，请老师检查后重试。');
-        data.text = (await response.json()).text?.trim();
+        // Retry transport failures only, using the same audio and deadline.
+        // An empty or incorrect recognition is not improved by decoding it twice.
+        for (let attempt = 0; attempt < 2; attempt++) {
+          let response;
+          try {
+            response = await fetch('/api/transcribe', {method: 'POST', headers: {'Content-Type': data.blob.type}, body: data.blob, signal: session.controller.signal});
+          } catch (error) {
+            if (attempt === 0 && error instanceof TypeError && this.owns(session) && !session.controller.signal.aborted) continue;
+            throw error;
+          }
+          if (attempt === 0 && [502, 504].includes(response.status) && this.owns(session) && !session.controller.signal.aborted) {
+            await response.body?.cancel();
+            continue;
+          }
+          if (!response.ok) throw await responseError(response, '暂时没有听清，录音保留了，请老师检查后重试。');
+          data.text = (await response.json()).text?.trim();
+          break;
+        }
       } catch (error) {
         if (timedOut) throw new Error('识别等待太久了，录音还在。请老师检查本机服务，再重新听这段。');
         throw error;

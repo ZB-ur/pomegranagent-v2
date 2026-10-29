@@ -54,7 +54,7 @@
         <div class="panel settings-card">
           <div class="card-heading"><h3>对话服务</h3><span class="small-label">需要联网</span></div><p class="subline">DeepSeek 根据本次发言和上下文接话；费用按服务商的 API 用量计收。</p>
           <form id="settings-form"><div class="settings-fields"><label class="field">服务地址<input name="providerBaseUrl" type="url" placeholder="https://api.deepseek.com" required></label><label class="field">对话模型<input name="chatModel" placeholder="deepseek-flash" required></label></div><label class="field">API 密钥<input name="apiKey" type="password" autocomplete="off" placeholder="留空保留已保存的密钥"></label><p id="config-status" class="subline"></p><div class="section-actions"><button class="button primary">保存对话设置</button><p id="config-save-status" class="save-status" role="status"></p></div></form>
-          <p class="section-note">录音识别与播音在本机完成，无需语音密钥。仅识别后的对话文字发给 DeepSeek；照片和教师备注不发送。</p>
+          <p class="section-note">录音识别与播音在本机完成，无需语音密钥。对话文字、所选幼儿近期三篇故事的必要背景与动物名字和类型发给 DeepSeek；照片和教师自由备注不发送。设备检查只使用本次试说内容。</p>
         </div>
       </section>
       <section class="settings-section" id="backup" aria-labelledby="backup-title">

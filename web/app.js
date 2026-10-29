@@ -383,7 +383,7 @@ async function respond(){
   clearTimeout(focusTimer);replyError=false;aiPending=true;silence();render();const current=draft,epoch=operationEpoch;operationController=new AbortController();
   beginProcessingHint();
   try{
-    const result=await api('chat',{themeId:current.themeId??'duck',turns:current.turns,childName:child.name,conversationRounds:current.conversationRounds??configuredRounds,activityDate:current.activityDate,finishRequested:Boolean(current.finishRequested||finishAfterInput)},'POST',operationController.signal);
+    const result=await api('chat',{storyId:current.id,childId:current.child.id,themeId:current.themeId??'duck',turns:current.turns,conversationRounds:current.conversationRounds??configuredRounds,activityDate:current.activityDate,finishRequested:Boolean(current.finishRequested||finishAfterInput)},'POST',operationController.signal);
     if(epoch!==operationEpoch||leaving)return;
     const reply=result.text||result.reply;if(!reply)throw new Error(`${theme().hostName}没有返回内容`);
     const next=structuredClone(current);next.turns.push({role:'assistant',text:reply});next.aiError=false;next.roundComplete=Boolean(result.isFinalRound);next.endRequested=Boolean(result.endConversation);next.autoFinish=next.roundComplete||next.endRequested||finishAfterInput;
