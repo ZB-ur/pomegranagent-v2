@@ -1,0 +1,414 @@
+{
+  "voice": "qwen-girl-curious",
+  "profileSha256": "6c01c7be2d81e119b24171a2b14bbc2361cddc5a136eac6586f800a36db44326",
+  "thinking": [
+    {
+      "file": "thinking-01.wav",
+      "text": "嗯，让我想想。",
+      "sha256": "2f46b136fd6e0c653b3b79405cb2179d48608c142632e9a7058006dc80343193",
+      "audioSeconds": 1.517,
+      "preparationSeconds": 27.644,
+      "metrics": {
+        "audioMs": 1517,
+        "tempoFactor": 1.4,
+        "synthesisMs": 5070,
+        "postprocessMs": 852,
+        "backend": "mlx",
+        "totalMs": 27643
+      }
+    },
+    {
+      "file": "thinking-02.wav",
+      "text": "我来想一想呀。",
+      "sha256": "5f8990741fed4f441066833d6117242f6a560c14e6c33b6b7045ccdd3ffb9135",
+      "audioSeconds": 1.6943,
+      "preparationSeconds": 1.252,
+      "metrics": {
+        "audioMs": 1694,
+        "tempoFactor": 1.0887,
+        "synthesisMs": 1219,
+        "postprocessMs": 32,
+        "backend": "mlx",
+        "totalMs": 1252
+      }
+    },
+    {
+      "file": "thinking-03.wav",
+      "text": "等我一下下。",
+      "sha256": "f2b37afe29518fd69c0727976d022a3d09891eeccd3fc5adc293b4360cb55d5c",
+      "audioSeconds": 1.3907,
+      "preparationSeconds": 0.98,
+      "metrics": {
+        "audioMs": 1391,
+        "tempoFactor": 0.7952,
+        "synthesisMs": 948,
+        "postprocessMs": 31,
+        "backend": "mlx",
+        "totalMs": 980
+      }
+    },
+    {
+      "file": "thinking-04.wav",
+      "text": "让我想一下哦。",
+      "sha256": "18e1f8fb6f91071547dccd9b69a2d4c1948d51ab928431b57f63bcfb913dde75",
+      "audioSeconds": 1.6861,
+      "preparationSeconds": 1.177,
+      "metrics": {
+        "audioMs": 1686,
+        "tempoFactor": 0.994,
+        "synthesisMs": 1147,
+        "postprocessMs": 30,
+        "backend": "mlx",
+        "totalMs": 1177
+      }
+    },
+    {
+      "file": "thinking-05.wav",
+      "text": "嗯，稍等一下。",
+      "sha256": "ec0843268fa2faf69cdd37ad978bc43889749b9fa4102e80784750451de401f7",
+      "audioSeconds": 1.5529,
+      "preparationSeconds": 1.379,
+      "metrics": {
+        "audioMs": 1553,
+        "tempoFactor": 1.4,
+        "synthesisMs": 1349,
+        "postprocessMs": 29,
+        "backend": "mlx",
+        "totalMs": 1379
+      }
+    },
+    {
+      "file": "thinking-06.wav",
+      "text": "我想想怎么说。",
+      "sha256": "b0cfa99257f98ed19127122ff99288b1ed16256128b5631c678633003a3bfef7",
+      "audioSeconds": 1.6852,
+      "preparationSeconds": 1.18,
+      "metrics": {
+        "audioMs": 1685,
+        "tempoFactor": 0.994,
+        "synthesisMs": 1146,
+        "postprocessMs": 33,
+        "backend": "mlx",
+        "totalMs": 1180
+      }
+    },
+    {
+      "file": "thinking-07.wav",
+      "text": "给我一点点时间。",
+      "sha256": "58ff94e363f2cff10576a20fa0d2b5e49c21ef14e2a304128815b7a0917e0c92",
+      "audioSeconds": 1.9517,
+      "preparationSeconds": 1.183,
+      "metrics": {
+        "audioMs": 1952,
+        "tempoFactor": 0.852,
+        "synthesisMs": 1149,
+        "postprocessMs": 32,
+        "backend": "mlx",
+        "totalMs": 1183
+      }
+    },
+    {
+      "file": "thinking-08.wav",
+      "text": "嗯，我正在想呢。",
+      "sha256": "367d6acf3c73bf3dfc04795a3d389472670b2a8649a6ca523bc508bc083a9162",
+      "audioSeconds": 1.9308,
+      "preparationSeconds": 1.695,
+      "metrics": {
+        "audioMs": 1931,
+        "tempoFactor": 1.4,
+        "synthesisMs": 1660,
+        "postprocessMs": 34,
+        "backend": "mlx",
+        "totalMs": 1694
+      }
+    },
+    {
+      "file": "thinking-09.wav",
+      "text": "我来想一想哦。",
+      "sha256": "d622d21e9326b8cf71e066c9b0b7b68a442e0a38bae3a7181f095a55f0ef1715",
+      "audioSeconds": 1.673,
+      "preparationSeconds": 1.184,
+      "metrics": {
+        "audioMs": 1673,
+        "tempoFactor": 0.9467,
+        "synthesisMs": 1150,
+        "postprocessMs": 33,
+        "backend": "mlx",
+        "totalMs": 1184
+      }
+    },
+    {
+      "file": "thinking-10.wav",
+      "text": "稍等我一会儿呀。",
+      "sha256": "f04907e66eac230225f2f0f7a2861f1b07cf93a7f4c93f0fdb5624daeebe3448",
+      "audioSeconds": 1.9606,
+      "preparationSeconds": 1.175,
+      "metrics": {
+        "audioMs": 1961,
+        "tempoFactor": 0.8114,
+        "synthesisMs": 1141,
+        "postprocessMs": 34,
+        "backend": "mlx",
+        "totalMs": 1175
+      }
+    }
+  ],
+  "guides": [
+    {
+      "file": "guide-01.wav",
+      "text": "找到自己的头像，来和我聊聊吧。",
+      "sha256": "61daa3b1492a3633b3573d568d9a7c91bcff76bc1b4f7c2de6311add3e6545fe",
+      "audioSeconds": 3.6385,
+      "preparationSeconds": 1.697,
+      "metrics": {
+        "audioMs": 3638,
+        "tempoFactor": 0.7865,
+        "synthesisMs": 1659,
+        "postprocessMs": 37,
+        "backend": "mlx",
+        "totalMs": 1697
+      }
+    },
+    {
+      "file": "guide-02.wav",
+      "text": "你的故事讲好啦，我帮你记下来。",
+      "sha256": "17cfd35e04f3ec495daa9ee5a20c769f1b11af0d10988c4679199886f143653b",
+      "audioSeconds": 3.6434,
+      "preparationSeconds": 1.847,
+      "metrics": {
+        "audioMs": 3643,
+        "tempoFactor": 0.8738,
+        "synthesisMs": 1808,
+        "postprocessMs": 38,
+        "backend": "mlx",
+        "totalMs": 1847
+      }
+    },
+    {
+      "file": "guide-03.wav",
+      "text": "你的故事讲好啦，我帮你记下来。还想说，按空格。",
+      "sha256": "73308e52c0271c2b11303b6f81494eb9bb8f24a450703152655975d2cfda2d10",
+      "audioSeconds": 5.3462,
+      "preparationSeconds": 2.688,
+      "metrics": {
+        "audioMs": 5346,
+        "tempoFactor": 0.9865,
+        "synthesisMs": 2644,
+        "postprocessMs": 42,
+        "backend": "mlx",
+        "totalMs": 2688
+      }
+    },
+    {
+      "file": "guide-04.wav",
+      "text": "记好啦！请下一位小朋友来吧。",
+      "sha256": "3f92172246c2080f1648238333a0d6cef933fce5f64cec3a46833ff1f22485a1",
+      "audioSeconds": 3.3744,
+      "preparationSeconds": 1.908,
+      "metrics": {
+        "audioMs": 3374,
+        "tempoFactor": 0.994,
+        "synthesisMs": 1874,
+        "postprocessMs": 33,
+        "backend": "mlx",
+        "totalMs": 1908
+      }
+    },
+    {
+      "file": "guide-05.wav",
+      "text": "还没有安排小朋友，请老师先帮忙安排一下吧。",
+      "sha256": "83d40e5ee68c27650b6f12ddbdc8c54d5af9297aa244df107f21d93e9e696680",
+      "audioSeconds": 5.3451,
+      "preparationSeconds": 2.236,
+      "metrics": {
+        "audioMs": 5345,
+        "tempoFactor": 0.7773,
+        "synthesisMs": 2197,
+        "postprocessMs": 36,
+        "backend": "mlx",
+        "totalMs": 2236
+      }
+    },
+    {
+      "file": "guide-06.wav",
+      "text": "还没有记好，故事还在。请老师帮忙，再试一次。",
+      "sha256": "1a39667735c677b7203a6c653225ef2822e4c2d2a8a4614bf188f1b968bd3399",
+      "audioSeconds": 5.0658,
+      "preparationSeconds": 2.587,
+      "metrics": {
+        "audioMs": 5066,
+        "tempoFactor": 0.994,
+        "synthesisMs": 2548,
+        "postprocessMs": 37,
+        "backend": "mlx",
+        "totalMs": 2587
+      }
+    },
+    {
+      "file": "guide-07.wav",
+      "text": "用方向键找到自己的头像，按回车，就是你啦。",
+      "sha256": "d6789c7def7b4a415c38830fb7d927f84b117771b747c635c56cda56a65585d9",
+      "audioSeconds": 5.0711,
+      "preparationSeconds": 2.628,
+      "metrics": {
+        "audioMs": 5071,
+        "tempoFactor": 1.0098,
+        "synthesisMs": 2582,
+        "postprocessMs": 44,
+        "backend": "mlx",
+        "totalMs": 2628
+      }
+    },
+    {
+      "file": "guide-08.wav",
+      "text": "按一下空格开始说，说完再按一下。想结束，选小本子。点我，或者按 F1，可以再听一遍。",
+      "sha256": "d53adcb49f44c49e4d66442b409269dd04d7ad3f88a74253f13873830e6597d6",
+      "audioSeconds": 8.985,
+      "preparationSeconds": 5.017,
+      "metrics": {
+        "audioMs": 8985,
+        "tempoFactor": 1.1892,
+        "synthesisMs": 4969,
+        "postprocessMs": 44,
+        "backend": "mlx",
+        "totalMs": 5017
+      }
+    },
+    {
+      "file": "guide-09.wav",
+      "text": "这里都是记下来的故事。点每段故事的小喇叭，就可以听。",
+      "sha256": "26930f107801fba225027e5ab53303af5a51569b15b5cc56b5a505aaaafa0cdf",
+      "audioSeconds": 6.4526,
+      "preparationSeconds": 3.118,
+      "metrics": {
+        "audioMs": 6453,
+        "tempoFactor": 0.8643,
+        "synthesisMs": 3062,
+        "postprocessMs": 53,
+        "backend": "mlx",
+        "totalMs": 3118
+      }
+    },
+    {
+      "file": "guide-10.wav",
+      "text": "按回车选下一位小朋友。按 F1，可以再听一遍。",
+      "sha256": "ed0523399d37ef77fb9e93bc0928d0d013b33fca553c887d755d3a3ff77aa983",
+      "audioSeconds": 4.7718,
+      "preparationSeconds": 2.648,
+      "metrics": {
+        "audioMs": 4772,
+        "tempoFactor": 1.0692,
+        "synthesisMs": 2603,
+        "postprocessMs": 42,
+        "backend": "mlx",
+        "totalMs": 2647
+      }
+    },
+    {
+      "file": "guide-11.wav",
+      "text": "正在准备声音。",
+      "sha256": "1209701e65dc0e0b5648509b480aa15fa3f6a349c8f738f54a209d50f249dd34",
+      "audioSeconds": 1.6904,
+      "preparationSeconds": 1.454,
+      "metrics": {
+        "audioMs": 1690,
+        "tempoFactor": 1.3727,
+        "synthesisMs": 1421,
+        "postprocessMs": 32,
+        "backend": "mlx",
+        "totalMs": 1453
+      }
+    },
+    {
+      "file": "guide-12.wav",
+      "text": "还没准备好保存故事，请老师检查本机服务。",
+      "sha256": "f182ffe0680be7333e17b598a6ce3c603086fe80cfc4a3820aa8dbd65329591f",
+      "audioSeconds": 5.0463,
+      "preparationSeconds": 2.139,
+      "metrics": {
+        "audioMs": 5046,
+        "tempoFactor": 0.7889,
+        "synthesisMs": 2097,
+        "postprocessMs": 40,
+        "backend": "mlx",
+        "totalMs": 2139
+      }
+    },
+    {
+      "file": "guide-13.wav",
+      "text": "等得有点久了，可以请老师帮忙，按 Tab 选择安全退出。",
+      "sha256": "a723416f9d9cf7100379af6f78abca70e650be6a08249fb7494b18aa21ec3090",
+      "audioSeconds": 5.6255,
+      "preparationSeconds": 5.234,
+      "metrics": {
+        "audioMs": 5626,
+        "tempoFactor": 0.9798,
+        "synthesisMs": 3041,
+        "postprocessMs": 104,
+        "backend": "mlx",
+        "totalMs": 5233
+      }
+    },
+    {
+      "file": "guide-14.wav",
+      "text": "等得有点久了。请老师帮忙，按回车选择安全退出。",
+      "sha256": "313f1a3b9cfad503699b269d9d6aa14ee54f754293158f67c6a14ac9a635dd77",
+      "audioSeconds": 5.6117,
+      "preparationSeconds": 2.774,
+      "metrics": {
+        "audioMs": 5612,
+        "tempoFactor": 0.9656,
+        "synthesisMs": 2729,
+        "postprocessMs": 42,
+        "backend": "mlx",
+        "totalMs": 2774
+      }
+    },
+    {
+      "file": "guide-15.wav",
+      "text": "可以继续等，也可以请老师保留草稿，先退出。退出不会记为完成。",
+      "sha256": "86e9ddc4d9108a1adcdd52e29b48d71f469292e6632afe2f4d94d75eb3adbeff",
+      "audioSeconds": 7.3061,
+      "preparationSeconds": 3.401,
+      "metrics": {
+        "audioMs": 7306,
+        "tempoFactor": 0.9503,
+        "synthesisMs": 3356,
+        "postprocessMs": 42,
+        "backend": "mlx",
+        "totalMs": 3401
+      }
+    },
+    {
+      "file": "guide-16.wav",
+      "text": "继续等待。按回车选择。",
+      "sha256": "9a9eef141297d8a650973625bef51a376ba1ed3dd1e5e16ec06ba075ed91a65b",
+      "audioSeconds": 2.5009,
+      "preparationSeconds": 1.699,
+      "metrics": {
+        "audioMs": 2501,
+        "tempoFactor": 1.136,
+        "synthesisMs": 1667,
+        "postprocessMs": 31,
+        "backend": "mlx",
+        "totalMs": 1699
+      }
+    },
+    {
+      "file": "guide-17.wav",
+      "text": "保留草稿并退出。按回车选择。",
+      "sha256": "a001f45ff49aaf21843f43854e40edb4605d1d52437bd2953f13bf958a115840",
+      "audioSeconds": 3.3872,
+      "preparationSeconds": 2.001,
+      "metrics": {
+        "audioMs": 3387,
+        "tempoFactor": 1.0887,
+        "synthesisMs": 1967,
+        "postprocessMs": 33,
+        "backend": "mlx",
+        "totalMs": 2001
+      }
+    }
+  ],
+  "provenance": "Generated locally from the synthetic reference selected on 2026-11-17; no children's recordings."
+}

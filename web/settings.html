@@ -34,10 +34,10 @@
       <section class="settings-section" id="conversation" aria-labelledby="conversation-title">
         <div class="section-heading"><span class="section-number">02</span><div><h2 id="conversation-title">声音与交流</h2><p>清楚、从容，让每一次讲述都留有余地。</p></div></div>
         <div class="panel settings-card">
-          <div class="card-heading"><h3>选个好听的声音</h3><span class="small-label">下一次播音生效</span></div>
-          <div class="settings-fields voice-fields"><label class="field">陪伴伙伴的声音<select id="voice-choice"><option value="">默认中文女声</option></select></label><label class="field">说话速度<select id="speech-rate"><option value="0.85">0.85 倍 · 慢一些</option><option value="0.95">0.95 倍 · 稍慢</option><option value="1.05" selected>1.05 倍 · 默认</option><option value="1.15">1.15 倍 · 稍快</option><option value="1.25">1.25 倍 · 快一些</option></select></label></div>
+          <div class="card-heading"><h3>好奇女孩的声音</h3><span class="small-label">下一次播音生效</span></div>
+          <div class="settings-fields voice-fields"><label class="field">陪伴伙伴的声音<select id="voice-choice" disabled><option value="qwen-girl-curious">好奇女孩</option></select></label><label class="field">说话速度<select id="speech-rate"><option value="0.85">0.85 倍 · 慢一些</option><option value="0.95">0.95 倍 · 稍慢</option><option value="1" selected>1 倍 · 轻快默认</option><option value="1.05">1.05 倍 · 稍快</option><option value="1.15">1.15 倍 · 更快</option><option value="1.25">1.25 倍 · 快一些</option></select></label></div>
           <div class="section-actions"><button type="button" class="button primary" id="save-voice">保存声音和语速</button><button type="button" class="button" id="listen">听中文引导</button><p id="voice-status" class="save-status" role="status"></p></div>
-          <div class="card-divider"></div>
+          <p class="section-note">音色固定为好奇女孩。默认节奏轻快、有活力；等待回应时会先播放一句简短提示。</p><div class="card-divider"></div>
           <form id="rounds-form"><div class="rounds-layout"><div><h3>每次聊几轮</h3><p class="subline">孩子说一段、伙伴回应一次，算一轮。也可以提前结束。</p></div><label class="field rounds-field">对话轮数<div class="rounds-input"><input id="conversation-rounds" type="number" min="1" max="20" step="1" value="3" required><span>轮</span></div></label></div><div class="section-actions"><button class="button primary">保存轮数</button><p id="rounds-status" class="save-status" role="status">默认 3 轮，可设 1–20 轮。</p></div><p class="section-note">只对新对话生效。最后一轮回应后自动收尾、保存，教师稍后核对。</p></form>
         </div>
       </section>

@@ -1,0 +1,8 @@
+# CUDA torch/torchaudio are installed first from PyTorch's pinned cu128 index.
+qwen-tts==0.1.1
+transformers==4.57.3
+accelerate==1.12.0
+numpy==2.2.6
+soundfile==0.14.0
+pyloudnorm==0.2.0
+imageio-ffmpeg==0.8.1

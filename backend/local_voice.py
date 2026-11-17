@@ -1,4 +1,4 @@
-"""CPU-only local Chinese speech. Audio is never sent to a remote service."""
+"""Local SenseVoice recognition and fixed-reference Qwen3 speech."""
 from __future__ import annotations
 
 import importlib.util
@@ -9,36 +9,29 @@ import re
 import threading
 import time
 import sys
-import wave
-from collections import OrderedDict
+from .qwen_voice import QwenSpeech, VOICE
 
 
 class LocalVoice:
     ASR_DIR = "sherpa-onnx-sense-voice-zh-en-ja-ko-yue-int8-2024-07-17"
-    TTS_DIR = "kokoro-multi-lang-v1_1"
-    # Official v1.1 speaker mapping. Keep a small Chinese selection for setup.
-    VOICES = {"zf_001": 3, "zf_002": 4, "zf_003": 5, "zf_004": 6, "zm_009": 58}
+    VOICES = {VOICE: "好奇女孩"}
 
     def __init__(self, model_root: Path):
         self.model_root = Path(model_root)
         self._asr = None
-        self._tts = None
+        self._tts = QwenSpeech(self.model_root)
         self._asr_lock = threading.Lock()
-        self._tts_lock = threading.Lock()
         self._errors = {}
         self._warming = False
         self._warmup_lock = threading.Lock()
-        self._cache = OrderedDict()
-        self._cache_bytes = 0
 
     def status(self) -> dict:
         dependencies = all(importlib.util.find_spec(x) is not None
                            for x in ("sherpa_onnx", "av", "numpy"))
         asr = self.model_root / self.ASR_DIR
-        tts = self.model_root / self.TTS_DIR
         asr_ready = dependencies and all((asr / x).is_file() for x in ("model.int8.onnx", "tokens.txt"))
-        tts_ready = dependencies and all((tts / x).exists() for x in (
-            "model.onnx", "tokens.txt", "voices.bin", "lexicon-zh.txt", "lexicon-us-en.txt", "espeak-ng-data"))
+        tts = self._tts.status()
+        tts_ready = tts["installed"] and not tts["error"]
         ready = asr_ready and tts_ready and not self._errors
         message = ("本地中文听说已安装；实际声音和麦克风还需设备试听。" if ready
                    else "本地语音尚未就绪，请运行项目语音安装脚本，并用项目 .venv 启动。")
@@ -47,9 +40,10 @@ class LocalVoice:
         return {"ready": ready, "asrReady": bool(asr_ready and "asr" not in self._errors),
                 "ttsReady": bool(tts_ready and "tts" not in self._errors), "message": message,
                 "provider": "local", "asrModel": "SenseVoice Small int8 2024-07-17",
-                "ttsModel": "Kokoro v1.1 zh", "defaultVoice": "zf_001",
-                "voices": list(self.VOICES), "warming": self._warming,
-                "loaded": {"asr": self._asr is not None, "tts": self._tts is not None}}
+                "ttsModel": "Qwen3-TTS 1.7B Base · 好奇女孩", "defaultVoice": VOICE,
+                "voices": list(self.VOICES), "voiceLabels": self.VOICES,
+                "ttsBackend": tts["backend"], "warming": self._warming or tts["warming"],
+                "loaded": {"asr": self._asr is not None, "tts": tts["loaded"]}}
 
     def warmup(self) -> dict:
         """Call from a server background thread before children enter."""
@@ -58,8 +52,7 @@ class LocalVoice:
             try:
                 with self._asr_lock:
                     self._load_asr()
-                with self._tts_lock:
-                    self._load_tts()
+                self._tts.warmup()
             finally:
                 self._warming = False
         return self.status()
@@ -81,30 +74,14 @@ class LocalVoice:
         return self._asr
 
     def _load_tts(self):
-        if self._tts is None:
-            root = self.model_root / self.TTS_DIR
-            if not all((root / x).exists() for x in ("model.onnx", "voices.bin", "tokens.txt",
-                                                    "espeak-ng-data", "lexicon-us-en.txt", "lexicon-zh.txt")):
-                raise RuntimeError("本地播音模型未安装，请运行项目语音安装脚本。")
-            import sherpa_onnx
-            try:
-                config = sherpa_onnx.OfflineTtsConfig(
-                    model=sherpa_onnx.OfflineTtsModelConfig(
-                        kokoro=sherpa_onnx.OfflineTtsKokoroModelConfig(
-                            model=str(root / "model.onnx"), voices=str(root / "voices.bin"),
-                            tokens=str(root / "tokens.txt"), data_dir=str(root / "espeak-ng-data"),
-                            lexicon=",".join(str(root / x) for x in ("lexicon-us-en.txt", "lexicon-zh.txt"))),
-                        num_threads=2, provider="cpu"),
-                    rule_fsts=",".join(str(root / x) for x in ("date-zh.fst", "number-zh.fst", "phone-zh.fst")
-                                       if (root / x).is_file()), max_num_sentences=1)
-                if not config.validate():
-                    raise RuntimeError("本地播音模型文件不完整，请重新安装。")
-                self._tts = sherpa_onnx.OfflineTts(config)
-                self._errors.pop("tts", None)
-            except Exception:
-                self._errors["tts"] = True
-                raise
+        self._tts.warmup()
         return self._tts
+
+    def cancel_speech(self, request_id):
+        return self._tts.cancel(request_id)
+
+    def close(self):
+        self._tts.close()
 
     def transcribe(self, audio: bytes, mime: str) -> str:
         started = time.monotonic()
@@ -160,40 +137,14 @@ class LocalVoice:
             metrics["recognizeMs"] = round((time.monotonic() - recognize_started) * 1000)
             return re.sub(r"<\|[^|]*\|>", "", stream.result.text).strip()
 
-    def speak(self, text: str, voice: str = "", speed: float = 1.05) -> bytes:
-        import numpy as np
+    def speak(self, text: str, voice: str = "", speed: float = 1.0, request_id=None) -> bytes:
         import math
         if type(speed) not in (int, float) or not math.isfinite(speed) or not 0.85 <= speed <= 1.25:
             raise ValueError("语速应为0.85至1.25。")
         text = text.strip()
-        if not text or len(text) > 1000:
-            raise ValueError("播音文字应为1至1000字。")
-        selected = voice.strip() or "zf_001"
-        if selected not in self.VOICES:
-            raise ValueError("请选择已安装的中文音色。")
-        with self._tts_lock:
-            key = (text, selected, speed)
-            if key in self._cache:
-                self._cache.move_to_end(key)
-                return self._cache[key]
-            engine = self._load_tts()
-            result = engine.generate(text, sid=self.VOICES[selected], speed=speed)
-            samples = np.asarray(result.samples)
-            if samples.size == 0:
-                raise RuntimeError("本地播音没有生成声音，请重试。")
-            pcm = (np.clip(samples, -1, 1) * 32767).astype("<i2").tobytes()
-            out = io.BytesIO()
-            with wave.open(out, "wb") as wav:
-                wav.setnchannels(1)
-                wav.setsampwidth(2)
-                wav.setframerate(result.sample_rate)
-                wav.writeframes(pcm)
-            data = out.getvalue()
-            # In-memory only: bounded cache avoids repeated fixed guidance synthesis.
-            if len(data) <= 4 * 1024 * 1024:
-                self._cache[key] = data
-                self._cache_bytes += len(data)
-                while len(self._cache) > 48 or self._cache_bytes > 16 * 1024 * 1024:
-                    _, removed = self._cache.popitem(last=False)
-                    self._cache_bytes -= len(removed)
-            return data
+        if not text or len(text) > 4000:
+            raise ValueError("整段播音文字应为1至4000字，请老师缩短过长的朗读内容。")
+        # Old saved Kokoro IDs migrate to the one selected product voice.
+        if voice.strip() not in ("", VOICE, "zf_001", "zf_002", "zf_003", "zf_004", "zm_009"):
+            raise ValueError("当前音色已锁定为好奇女孩。")
+        return self._tts.speak(text, speed, request_id)

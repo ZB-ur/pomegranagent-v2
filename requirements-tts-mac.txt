@@ -1,0 +1,8 @@
+# Isolated Python 3.12 environment; the audition's exact MLX backend.
+mlx-audio==0.6.5
+mlx==0.32.4
+transformers==5.22.2
+numpy==2.5.4
+soundfile==0.14.0
+pyloudnorm==0.2.0
+imageio-ffmpeg==0.8.1

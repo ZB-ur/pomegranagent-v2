@@ -13,6 +13,6 @@ if [ ! -x .venv/bin/python ]; then
 fi
 UV_CACHE_DIR="$PWD/.runtime/cache" .venv/bin/python scripts/setup_voice.py
 result=$?
-if [ "$result" -eq 0 ]; then echo '准备完成。打开 launch.command 即可开始。'; fi
-read -r answer
+if [ "$result" -eq 0 ]; then echo '好奇女孩与本地识别已准备完成。打开 launch.command 即可开始。'; fi
+if [ "$1" != '--no-pause' ]; then read -r answer; fi
 exit "$result"

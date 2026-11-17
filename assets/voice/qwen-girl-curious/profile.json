@@ -1,0 +1,13 @@
+{
+  "id": "qwen-girl-curious",
+  "label": "好奇女孩",
+  "version": 1,
+  "referenceText": "你好呀，很高兴和你一起聊聊天！我刚刚看见窗边亮晶晶的小光点，一闪一闪的，真有意思。你也有发现想告诉我吗？",
+  "referenceSha256": "d570be11a12520b50d0eab285af3b02197035751b947cbe74a1a2cccecb25504",
+  "referenceSource": "Qwen3-TTS VoiceDesign synthetic reference, selected audition 2026-11-17",
+  "designInstruction": "自然的六七岁小女孩童声，声音细软明亮，带一点天真的俏皮感，普通话清楚。充满好奇和期待，像拉着朋友一起探索，开心有活力，重音和音调有灵动变化，语速轻快，收尾利落。",
+  "seed": 42,
+  "hanziPerSecond": 3.55,
+  "lufs": -23,
+  "source": "https://github.com/QwenLM/Qwen3-TTS#voice-design-then-clone"
+}

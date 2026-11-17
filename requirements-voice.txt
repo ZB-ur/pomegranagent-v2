@@ -3,3 +3,4 @@ sherpa-onnx==1.13.7
 sherpa-onnx-core==1.13.7
 av==18.1.0
 numpy==2.5.3
+imageio-ffmpeg==0.8.1

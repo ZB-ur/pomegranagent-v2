@@ -1,5 +1,5 @@
 import {getDiaryTheme, themePose, themePoseWidth} from './diary-themes.mjs';
-import { Recorder, Speaker, handlesSpace } from './audio.mjs';
+import { Recorder, Speaker, ThinkingAudio, handlesSpace } from './audio.mjs';
 import { duckLine, chooseDuckCall } from './duck-voice.mjs';
 import { loadData, rosterFor, dateKey, recordDate, read, update, api, refresh, draftFor, putDraft, removeDraft } from './store.mjs';
 
@@ -31,7 +31,7 @@ let replyPhase = '', replyError = false;
 let closingTimer, closingSeconds=3, closingStage='', closingError='', finishAfterInput=false;
 const closingCue='你的故事讲好啦，我帮你记下来。';
 const replyCalls = new Map();
-let processingTimer, processingActive=false, processingAnnounced=false;
+let processingActive=false;
 let posesReady=false, pendingMood='', pendingMoodTimer;
 let operationController, operationEpoch=0, leaving=false, waitTimer, waitActive=false, exitAvailable=false;
 const interactionLocked = () => leaving || saving || ['conversation','closing'].includes(screen) && (aiPending || saving || ['starting','stopping'].includes(capture) || Boolean(replyPhase));
@@ -39,7 +39,7 @@ let liveText = draft?.pendingText ?? '';
 let prompt = draft?.turns.filter(turn => turn.role === 'assistant').at(-1)?.text ?? opening;
 let guide = '';
 let guideIsVerbatim = false;
-let speaking = false, hintSpeaking=false, voiceError='';
+let speaking = false, hintSpeaking=false, recoverySpeaking=false, thinkingSpeaking=false, voiceError='';
 let voiceVisualActive=false, voiceVisualTimer, hintVisualActive=false, hintVisualTimer;
 
 let noticeTimer;
@@ -142,7 +142,7 @@ function showExit(){
     dialog.querySelectorAll('button').forEach(b=>b.onfocus=()=>recoveryVoice.speak(b.textContent+'。按回车选择。'));
     dialog.addEventListener('cancel',e=>{if(leaving)e.preventDefault();else dismiss();});$('#stay-waiting').onclick=dismiss;
     $('#confirm-exit').onclick=async()=>{
-      if(leaving)return;leaving=true;++operationEpoch;operationController?.abort();clearTimeout(focusTimer);silence();recoveryVoice.stop();dialog.querySelectorAll('button').forEach(b=>b.disabled=true);
+      if(leaving)return;leaving=true;++operationEpoch;operationController?.abort();clearTimeout(focusTimer);stopProcessingHint();silence();recoveryVoice.stop();dialog.querySelectorAll('button').forEach(b=>b.disabled=true);
       try{
         await input.cancel();await draftSave.catch(()=>{});if(draftUnsaved)await syncDraft();await refresh();
         records=read(RECORDS_KEY,[]);drafts=read(DRAFT_KEY,{});
@@ -187,14 +187,18 @@ function refreshMood(settled=false) {
   $('#voice-status').textContent = voiceError || (replyPhase==='preparing'?`正在准备${theme().hostName}的声音`:speaking||hintSpeaking ? `${theme().hostName}正在说话` : soundUnlocked ? '语音引导已开启' : `点${theme().hostName}，听语音引导`);
 }
 class GuideSpeaker extends Speaker {
-  speak(text,onDone,playback) { return super.speak(duckLine(text),onDone,playback); }
+  speak(text,onDone,playback) { thinkingAudio.stop();return super.speak(duckLine(text),onDone,playback); }
 }
-const recoveryVoice = new GuideSpeaker((value,detail)=>{
-  hintSpeaking=value;clearTimeout(hintVisualTimer);
-  if(value)hintVisualActive=true;
+function updateHintSpeaking(detail){
+  hintSpeaking=recoverySpeaking||thinkingSpeaking;clearTimeout(hintVisualTimer);
+  if(hintSpeaking)hintVisualActive=true;
   else if(detail?.phase!=='buffering')hintVisualTimer=setTimeout(()=>{hintVisualActive=false;refreshMood();},180);
   refreshMood();
+}
+const recoveryVoice = new GuideSpeaker((value,detail)=>{
+  recoverySpeaking=value;updateHintSpeaking(detail);
 },message=>notify(message));
+const thinkingAudio = new ThinkingAudio(value=>{thinkingSpeaking=value;updateHintSpeaking();});
 const speaker = new Speaker((value,detail)=>{
   speaking=value;clearTimeout(voiceVisualTimer);
   if(value){voiceVisualActive=true;stopProcessingHint();soundUnlocked=true;voiceError='';}
@@ -207,16 +211,23 @@ const speaker = new Speaker((value,detail)=>{
 function silence(){speaker.stop();}
 function say(text,onDone,verbatim=false){guide=verbatim?text:duckLine(text);guideIsVerbatim=verbatim;if(capture==='listening')return;speaker.speak(guide,onDone);}
 function beginProcessingHint(){
-  if(processingActive)return;
-  processingActive=true;processingAnnounced=false;
-  processingTimer=setTimeout(()=>{
-    if(!processingActive||processingAnnounced||leaving||capture==='listening'||document.querySelector('dialog[open]'))return;
-    processingAnnounced=true;
-    recoveryVoice.speak('我在整理你刚才说的话。');
-  },5000);
+  if(processingActive)return;processingActive=true;
+  thinkingAudio.begin(()=>!leaving&&capture!=='listening'&&!speaking&&!document.querySelector('dialog[open]'));
+}
+async function finishProcessingHint(signal){
+  // Preserve this wait across recognition, chat and synthesis. If the reply is
+  // ready during the short acknowledgement, let its last word finish first.
+  await thinkingAudio.finish();
+  if(signal.aborted)return;
+  const dialog=document.querySelector('dialog[open]');
+  if(dialog)await new Promise(resolve=>{
+    const done=()=>{dialog.removeEventListener('close',done);signal.removeEventListener('abort',done);resolve();};
+    dialog.addEventListener('close',done,{once:true});signal.addEventListener('abort',done,{once:true});
+  });
+  if(!signal.aborted)recoveryVoice.stop();
 }
 function stopProcessingHint(){
-  clearTimeout(processingTimer);processingActive=false;processingAnnounced=false;
+  processingActive=false;thinkingAudio.stop();
   if(!document.querySelector('dialog[open]'))recoveryVoice.stop();
 }
 function openHelp(){
@@ -347,7 +358,7 @@ function playReply(current) {
   guide=reply;guideIsVerbatim=false;
   let shown='';
   const refreshReply=()=>{
-    // Updating a sentence must not recreate the mascot or restart its animation.
+    // Updating the reply must not recreate the mascot or restart its animation.
     $('.conversation-prompt').textContent=prompt||`${theme().hostName}想好了，马上说给你听。`;
     const waiting=replyPhase==='preparing',pill=$('.status-pill');
     pill.classList.toggle('waiting',waiting);
@@ -361,7 +372,7 @@ function playReply(current) {
     replyPhase='';prompt=reply;render();
     if(ended)beginClosing();else $('#record-toggle')?.focus();
   },{
-    duckCall:replyCalls.get(callKey), duckCallText:reply,
+    duckCall:replyCalls.get(callKey), beforePlay:finishProcessingHint,
     onCue:()=>{
       if(draft!==current||screen!=='conversation')return;
       replyPhase='playing';refreshReply();
@@ -512,7 +523,7 @@ window.addEventListener('pageshow',async event=>{if(event.persisted&&screen==='r
 async function readTeacherTheme(){const config=await api('settings',undefined,'GET');configuredThemeId=getDiaryTheme(config.diaryThemeId).id;}
 try{await readTeacherTheme();}catch{}
 window.addEventListener('focus',async()=>{if(screen!=='roster')return;try{await readTeacherTheme();if(screen==='roster')render();}catch{notify('尚未读到老师的装修设置，请检查本机服务。');}});
-render(); document.querySelector('[data-child]')?.focus({preventScroll:true}); clearTimeout(focusTimer);guide = stepGuide(); say(guide,()=>speaker.preload([closingCue,duckLine('还想说，按空格。')]));
+render(); document.querySelector('[data-child]')?.focus({preventScroll:true}); clearTimeout(focusTimer);guide = stepGuide(); say(guide);
 Promise.all(['listening','acknowledging','writing','inviting'].map(name=>{const img=new Image();img.src=`assets/duck-poses/${name}.png`;return img.decode();})).then(()=>{posesReady=true;refreshMood();}).catch(()=>console.warn('新姿态未加载，继续使用原有小鸭。'));
 
 window.addEventListener('beforeunload',e=>{if(screen==='closing'||capture!=='idle'||aiPending||saving||draftWrites||draftUnsaved){e.preventDefault();e.returnValue='';}});

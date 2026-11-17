@@ -14,4 +14,4 @@ if errorlevel 1 (
   exit /b 1
 )
 echo Ready. Open launch.bat to start the diary.
-pause
+if not "%~1"=="--no-pause" pause

@@ -1,0 +1,26 @@
+Qwen3-TTS 1.7B Base and the synthetic curious-girl voice
+
+Official project: https://github.com/QwenLM/Qwen3-TTS
+Official CUDA weights: https://huggingface.co/Qwen/Qwen3-TTS-12Hz-1.7B-Base
+Apple Silicon conversion: https://huggingface.co/mlx-community/Qwen3-TTS-12Hz-1.7B-Base-4bit
+Qwen3-TTS is distributed under Apache License 2.0; see LICENSE-Qwen3-TTS.txt.
+The project does not modify the model weights. Revisions and file digests are
+recorded in qwen-models.json; the MLX conversion is 4-bit, CUDA weights are BF16.
+
+The reference.wav is a synthetic VoiceDesign output, not a child's recording.
+It is the exact curious-girl reference selected in the 2026-11-17 audition.
+profile.json records its SHA256, transcript and synthesis/playback parameters.
+The application keeps this reference fixed and uses Base voice cloning locally.
+VoiceDesign is not needed at runtime and is not included in the application bundle.
+
+MLX Audio: https://github.com/Blaizzy/mlx-audio (MIT)
+Qwen Python runtime: https://pypi.org/project/qwen-tts/
+SenseVoice runtime/models: https://github.com/k2-fsa/sherpa-onnx
+FFmpeg binary: imageio-ffmpeg package; its license and notices ship in that package.
+Python and all other dependency licenses remain in the bundled runtime and
+package metadata. The SenseVoice license remains in its model directory.
+
+Only model setup downloads public weights/dependencies. ASR and TTS inference
+use local files and do not call cloud speech APIs. Dialogue/summary retain the
+existing separately configured service. No credentials or classroom data are
+included in the package builder's allowlist.

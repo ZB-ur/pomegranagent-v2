@@ -16,6 +16,7 @@ import webbrowser
 import threading
 import time
 from .local_voice import LocalVoice
+from .qwen_voice import VOICE, SpeechBusy, SpeechCancelled
 from .evaluation import AIObservation, visible_provider_response
 from .agent_profiles import DEFAULT_DIALOGUE_PROFILE, describe_profiles, prompt_sha256, select_profile
 from .dialogue_evidence import (EvidenceError, bind_saved_draft, child_sources, digest as evidence_digest,
@@ -34,7 +35,7 @@ FORMAT = 'penegranagent-v2-backup'
 EMPTY = {'revision': 0, 'data': {'children': [], 'ducks': [], 'schedules': {}}, 'records': [], 'drafts': {}}
 SETTING_KEYS = ('providerBaseUrl', 'chatModel', 'transcriptionModel', 'speechModel', 'voice', 'diaryThemeId')
 DEFAULT_CONVERSATION_ROUNDS = 3
-DEFAULT_SPEECH_RATE = 1.05
+DEFAULT_SPEECH_RATE = 1.0
 THEMES = {'duck': ('鸭鸭', '小鸭'), 'budgerigar': ('鹦鹉', '虎皮鹦鹉'), 'hamster': ('仓鼠', '金丝熊')}
 
 def theme_id(value):
@@ -473,8 +474,8 @@ class Store:
 
     def settings(self):
         with self.connect() as db:
-            return {**json.loads(db.execute('SELECT body FROM settings WHERE id=1').fetchone()[0]),
-                    **self.runtime_settings}
+            return current_voice_settings({**json.loads(db.execute('SELECT body FROM settings WHERE id=1').fetchone()[0]),
+                                           **self.runtime_settings})
 
     def save_settings(self, value):
         if not isinstance(value, dict) or set(value) - set(SETTING_KEYS) - {'apiKey', 'clearApiKey', 'conversationRounds', 'speechRate'}:
@@ -485,17 +486,20 @@ class Store:
             validate_conversation_rounds(value['conversationRounds'])
         if 'speechRate' in value:
             validate_speech_rate(value['speechRate'])
+        if 'voice' in value and value['voice'] not in ('', VOICE):
+            raise APIError(400, '当前音色已锁定为好奇女孩。')
         for key, item in value.items():
             if key not in ('clearApiKey', 'conversationRounds', 'speechRate') and (not isinstance(item, str) or len(item) > 4096 or '\n' in item or '\r' in item):
                 raise APIError(400, '服务设置格式无效。')
         with self.connect() as db:
             db.execute('BEGIN IMMEDIATE')
-            settings = json.loads(db.execute('SELECT body FROM settings WHERE id=1').fetchone()[0])
+            settings = current_voice_settings(json.loads(db.execute('SELECT body FROM settings WHERE id=1').fetchone()[0]))
             for key in SETTING_KEYS:
                 if key in value:
                     settings[key] = value[key].strip()
             settings['conversationRounds'] = value.get('conversationRounds', settings.get('conversationRounds', DEFAULT_CONVERSATION_ROUNDS))
             settings['speechRate'] = value.get('speechRate', settings.get('speechRate', DEFAULT_SPEECH_RATE))
+            settings['voice'] = VOICE
             base = settings.get('providerBaseUrl', '')
             if base:
                 url = urlsplit(base)
@@ -509,7 +513,16 @@ class Store:
         return public_settings(settings)
 
 
+def current_voice_settings(settings):
+    # Kokoro rates have a different meaning. Migrate to the selected audition
+    # default once; retain subsequent teacher adjustments for this Qwen voice.
+    if settings.get('voice') != VOICE:
+        return {**settings, 'voice': VOICE, 'speechRate': DEFAULT_SPEECH_RATE}
+    return settings
+
+
 def public_settings(settings):
+    settings = current_voice_settings(settings)
     result = {key: settings.get(key, '') for key in SETTING_KEYS}
     result['diaryThemeId'] = theme_id(settings.get('diaryThemeId'))
     result['conversationRounds'] = settings.get('conversationRounds', DEFAULT_CONVERSATION_ROUNDS)
@@ -683,11 +696,20 @@ class Handler(BaseHTTPRequestHandler):
                 if value.get('format') != FORMAT or value.get('version') != 1 or 'state' not in value:
                     raise APIError(400, '这不是本应用支持的备份文件，未修改资料。')
                 return self.reply(200, store.save(value['state'], restore=True, preferences=value.get('preferences')))
+            if self.command == 'POST' and path == '/api/speech/cancel':
+                request_id = self.json_body().get('requestId')
+                if not isinstance(request_id, str) or not re.fullmatch(r'[a-zA-Z0-9-]{1,80}', request_id):
+                    raise APIError(400, '播音请求编号无效。')
+                active = self.server.local_voice.cancel_speech(request_id)
+                return self.reply(200, {'cancelled': True, 'wasActive': active})
             if self.command == 'POST' and path in ('/api/chat', '/api/summary', '/api/speech', '/api/transcribe'):
                 return self.ai(path, store.settings())
             raise APIError(404, '没有这个接口。')
         except APIError as exc:
-            self.reply(exc.status, {'error': exc.message})
+            try:
+                self.reply(exc.status, {'error': exc.message})
+            except (BrokenPipeError, ConnectionResetError):
+                pass  # The browser may already have cancelled this speech POST.
         except (BrokenPipeError, ConnectionResetError):
             pass
         except (TimeoutError, OSError, sqlite3.Error):
@@ -744,8 +766,15 @@ class Handler(BaseHTTPRequestHandler):
             text = value.get('text')
             if not isinstance(text, str) or not 0 < len(text.strip()) <= 4000:
                 raise APIError(400, '朗读内容为空或过长。')
+            request_id = value.get('requestId', str(uuid.uuid4()))
+            if not isinstance(request_id, str) or not re.fullmatch(r'[a-zA-Z0-9-]{1,80}', request_id):
+                raise APIError(400, '播音请求编号无效。')
             try:
-                raw = self.server.local_voice.speak(text, settings.get('voice', ''), validate_speech_rate(settings.get('speechRate', DEFAULT_SPEECH_RATE)))
+                raw = self.server.local_voice.speak(text, settings.get('voice', ''), validate_speech_rate(settings.get('speechRate', DEFAULT_SPEECH_RATE)), request_id=request_id)
+            except SpeechCancelled as exc:
+                raise APIError(499, str(exc)) from None
+            except SpeechBusy as exc:
+                raise APIError(409, str(exc)) from None
             except (RuntimeError, ValueError) as exc:
                 raise APIError(503, str(exc)) from None
             return self.reply(200, raw, 'audio/wav')
@@ -1182,6 +1211,7 @@ def main():
     except KeyboardInterrupt:
         pass
     finally:
+        server.local_voice.close()
         server.server_close()
 
 

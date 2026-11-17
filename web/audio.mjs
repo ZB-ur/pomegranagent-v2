@@ -241,143 +241,148 @@ export class Recorder {
     this.release(session);
   }
 }
-export class Speaker {
-  constructor(onState, onError) { Object.assign(this, {onState, onError}); this.epoch = 0; this.cache = new Map(); }
+// One short, bundled acknowledgement per wait; it never asks the speech model
+// to do extra work. finish() lets the current clip end before the real reply.
+export class ThinkingAudio {
+  constructor(onState) { this.onState=onState; this.epoch=0; this.last=-1; this.done=Promise.resolve(); }
+  begin(canPlay=()=>true) {
+    if(this.active)return;
+    this.active=true;const epoch=++this.epoch;
+    this.timer=setTimeout(()=>{
+      if(!this.active||epoch!==this.epoch||!canPlay())return;
+      const choices=Array.from({length:10},(_,index)=>index).filter(index=>index!==this.last);
+      const index=choices[Math.floor(Math.random()*choices.length)];this.last=index;
+      const audio=this.audio=new Audio(`/assets/voice/qwen-girl-curious/thinking-${String(index+1).padStart(2,'0')}.wav`);
+      this.done=new Promise(resolve=>{this.resolve=resolve;});
+      const settle=()=>{
+        if(epoch!==this.epoch)return;
+        clearTimeout(this.guard);audio.pause();audio.onplaying=audio.onended=audio.onerror=null;
+        if(this.audio===audio)this.audio=null;
+        this.onState(false);this.resolve?.();this.resolve=null;
+      };
+      // A missing or stalled optional clip must not hold up the real reply.
+      this.guard=setTimeout(settle,3000);
+      audio.onplaying=()=>{
+        if(epoch!==this.epoch){audio.pause();return;}
+        clearTimeout(this.guard);this.guard=setTimeout(settle,8000);this.onState(true);
+        console.debug('[voice] thinking '+JSON.stringify({candidate:index+1}));
+      };
+      audio.onended=settle;audio.onerror=settle;
+      audio.play().catch(settle);
+    },800);
+  }
+  async finish() {
+    const epoch=this.epoch;clearTimeout(this.timer);
+    await this.done;
+    if(epoch===this.epoch)this.stop();
+  }
   stop() {
-    this.epoch++; this.controller?.abort(); this.warmController?.abort();
-    if (this.audio) { this.audio.pause(); this.audio.onended = this.audio.onerror = this.audio.onplaying = null; this.audio = null; }
-    this.onState(false);
+    ++this.epoch;clearTimeout(this.timer);clearTimeout(this.guard);this.active=false;
+    if(this.audio){this.audio.pause();this.audio.onplaying=this.audio.onended=this.audio.onerror=null;this.audio=null;}
+    this.resolve?.();this.resolve=null;this.done=Promise.resolve();this.onState(false);
   }
-  clearCache() { this.stop(); this.dropCache(); }
-  dropCache() { for (const url of this.cache.values()) URL.revokeObjectURL(url); this.cache.clear(); }
+}
+
+export class Speaker {
+  constructor(onState, onError) { Object.assign(this, {onState, onError}); this.epoch=0; this.cache=new Map(); this.cacheBytes=0; }
+  stop() {
+    this.epoch++;this.controller?.abort();this.controller=null;
+    if(this.audio){this.audio.pause();this.audio.onended=this.audio.onerror=this.audio.onplaying=null;this.audio=null;}
+    this.releaseTransient();this.onState(false);
+  }
+  clearCache() { this.stop();this.dropCache(); }
+  releaseTransient() { if(this.transientUrl){URL.revokeObjectURL(this.transientUrl);this.transientUrl=null;} }
+  dropCache() { for(const item of this.cache.values())URL.revokeObjectURL(item.url);this.cache.clear();this.cacheBytes=0; }
   async refreshSettings(signal) {
-    const controller = new AbortController();
-    const abort = () => controller.abort();
-    signal.addEventListener('abort', abort, {once:true});
-    if (signal.aborted) controller.abort();
-    const timer = setTimeout(abort, 10000);
+    const controller=new AbortController(),abort=()=>controller.abort();
+    signal.addEventListener('abort',abort,{once:true});if(signal.aborted)controller.abort();
+    const timer=setTimeout(abort,10000);
     try {
-      const response = await fetch('/api/settings', {signal:controller.signal});
-      if (!response.ok) throw await responseError(response, '还没读到声音设置，请重试。');
-      const value = await response.json();
-      const key = JSON.stringify([value.voice, value.speechRate, this.themeId]);
-      if (signal.aborted) throw new DOMException('Stopped', 'AbortError');
-      if (this.settingsKey !== key) { this.dropCache(); this.settingsKey = key; }
-    } catch (error) {
-      if (!signal.aborted && error.name === 'AbortError') throw new Error('读取声音设置等待太久，请重试。');
+      const response=await fetch('/api/settings',{signal:controller.signal});
+      if(!response.ok)throw await responseError(response,'还没读到声音设置，请重试。');
+      const value=await response.json(),key=JSON.stringify([value.voice,value.speechRate,this.themeId]);
+      if(signal.aborted)throw new DOMException('Stopped','AbortError');
+      if(this.settingsKey!==key){this.dropCache();this.settingsKey=key;}
+    } catch(error) {
+      if(!signal.aborted&&error.name==='AbortError')throw new Error('读取声音设置等待太久，请重试。');
       throw error;
-    } finally { clearTimeout(timer); signal.removeEventListener('abort', abort); }
+    } finally {clearTimeout(timer);signal.removeEventListener('abort',abort);}
   }
-  async prepare(text, signal) {
-    if (signal.aborted) throw new DOMException('Stopped', 'AbortError');
-    if (this.cache.has(text)) return this.cache.get(text);
-    const controller = new AbortController();
-    const abort = () => controller.abort();
-    signal.addEventListener('abort', abort, {once:true});
-    let timedOut = false;
-    const timer = setTimeout(() => { timedOut = true; controller.abort(); }, 60000);
-    try {
-      const response = await fetch('/api/speech', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify({text,themeId:this.themeId}), signal:controller.signal});
-      if (!response.ok) throw await responseError(response, '语音引导还没准备好，请老师检查本机语音后，点聊天小伙伴重听。');
-      const blob = await response.blob();
-      if (signal.aborted) throw new DOMException('Stopped', 'AbortError');
-      const url = URL.createObjectURL(blob);
-      if (this.cache.size >= 40) { const [key, old] = this.cache.entries().next().value; URL.revokeObjectURL(old); this.cache.delete(key); }
-      this.cache.set(text, url);
-      return url;
-    } catch (error) {
-      if (timedOut) throw new Error('准备声音等待太久了，请老师检查本机服务，再点聊天小伙伴重听。');
-      throw error;
-    } finally { clearTimeout(timer); signal.removeEventListener('abort', abort); }
-  }
-  async preload(texts) {
-    this.warmController?.abort();
-    const controller = this.warmController = new AbortController();
-    try {
-      await this.refreshSettings(controller.signal);
-      for (const text of texts) await this.prepare(text, controller.signal);
-    } catch { /* Optional idle warming must never replace an actionable voice error. */ }
-  }
-  async speak(text, onDone, playback = {}) {
-    this.stop(); const epoch = this.epoch; const controller = this.controller = new AbortController();
-    const current = () => epoch === this.epoch && !controller.signal.aborted;
-    const requestedAt = performance.now();
-    const callDirectory = getDiaryTheme(this.themeId).callDirectory;
-    let previousEndedAt = null;
-    const chunks = [];
-    for (const sentence of String(text).match(/[^。！？!?\n]+[。！？!?\n]*|[。！？!?\n]+/g) || []) {
-      for (let offset = 0; offset < sentence.length; offset += 240) chunks.push({text:sentence.slice(offset, offset + 240)});
-    }
-    // A call is an audio-only part of the same owned playback queue. Never send
-    // it to TTS or expose it as a child's words. End cues remain after the reply.
-    if (['prefix','suffix'].includes(playback.duckCall) && chunks.length) {
-      let boundary=0, length=0;
-      while(boundary<chunks.length && length<String(playback.duckCallText || text).length) length+=chunks[boundary++].text.length;
-      chunks.splice(playback.duckCall==='prefix'?0:boundary,0,{cue:playback.duckCall});
-    }
-    const fail = error => {
-      if (!current() || error.name === 'AbortError') return;
-      controller.abort(); this.audio?.pause(); this.onState(false); playback.onError?.();
-      this.onError(error.name === 'NotAllowedError' ? '点一下聊天小伙伴，开启声音引导。' : error.message);
+  async prepare(text,signal) {
+    if(signal.aborted)throw new DOMException('Stopped','AbortError');
+    if(this.cache.has(text))return this.cache.get(text).url;
+    const controller=new AbortController(),requestId=crypto.randomUUID();
+    let timedOut=false,completed=false,cancelSent=false;
+    const abort=()=>{
+      controller.abort();
+      if(completed||cancelSent)return;
+      cancelSent=true;
+      // The request id also fences a cancel that reaches the local server first.
+      fetch('/api/speech/cancel',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({requestId}),keepalive:true,signal:AbortSignal.timeout(5000)}).catch(()=>{});
     };
-    // Resolve lookahead failures into values so a failed future chunk cannot
-    // reject unhandled or interrupt the sentence that is already playing.
-    const prepared = new Map();
-    const prepare = index => {
-      if(prepared.has(index))return prepared.get(index);
-      const entry = {ready:false};
-      prepared.set(index,entry);
-      const chunk=chunks[index];
-      const source=chunk.cue ? Promise.resolve(callDirectory+'/'+chunk.cue+'.wav') : this.prepare(chunk.text, controller.signal);
-      entry.promise = source.then(url => {
-        const audio = new Audio(url); audio.preload = 'auto'; audio.load();
-        entry.ready = true; return {audio};
-      }, error => ({error}));
-      return entry;
-    };
-    const play = async (index, entry) => {
-      if (!current()) return;
-      if (!entry.ready) { this.onState(false, {phase:index ? 'buffering' : 'preparing'}); playback.onPreparing?.(); }
-      const result = await entry.promise;
-      if (!current()) return;
-      if (result.error) { fail(result.error); return; }
-      const audio = this.audio = result.audio;
-      // Generate the following sentence while this one plays, not after it ends.
-      const next = index + 1 < chunks.length ? prepare(index + 1) : null;
-      let started = false;
-      audio.onplaying = () => {
-        if (current() && !started) {
-          started = true;
-          console.debug('[voice] playback ' + JSON.stringify({chunk:index + 1, cue:chunks[index].cue, firstAudioMs:index === 0 ? Math.round(performance.now() - requestedAt) : undefined, gapMs:previousEndedAt === null ? undefined : Math.round(performance.now() - previousEndedAt)}));
-          this.onState(true);
-          if(chunks[index].cue)playback.onCue?.();else playback.onChunk?.(chunks[index].text);
-        }
-      };
-      audio.onended = () => {
-        if (!current()) return;
-        previousEndedAt = performance.now();
-        if (next) void play(index + 1, next).catch(fail);
-        else { this.audio = null; this.onState(false); onDone?.(); }
-      };
-      audio.onerror = () => fail(new Error('声音没有播出来，请老师检查扬声器，再点聊天小伙伴重听。'));
-      let timer;
-      try {
-        await Promise.race([audio.play(), new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('浏览器还没有开始播放，请老师打开这个页面，再点聊天小伙伴重听。')), 15000); })]);
-      } finally { clearTimeout(timer); }
-    };
+    signal.addEventListener('abort',abort,{once:true});
+    const timer=setTimeout(()=>{timedOut=true;abort();},180000);
     try {
-      if (!chunks.length) { onDone?.(); return; }
-      playback.onPreparing?.();
-      await this.refreshSettings(controller.signal);
-      // Prepare the first spoken sentence before a prefix call, so the call
-      // cannot be followed by a fresh synthesis wait.
-      if(current() && chunks[0].cue && chunks[1]) {
-        const first=prepare(0), speech=await prepare(1).promise;
-        if(speech.error){fail(speech.error);return;}
-        if(current())await play(0,first);
-        return;
+      const response=await fetch('/api/speech',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({text,themeId:this.themeId,requestId}),signal:controller.signal});
+      if(!response.ok)throw await responseError(response,'语音引导还没准备好，请老师检查本机语音后，点聊天小伙伴重听。');
+      const blob=await response.blob();completed=true;
+      if(signal.aborted)throw new DOMException('Stopped','AbortError');
+      const url=URL.createObjectURL(blob);
+      const limit=32*1024*1024;
+      if(blob.size>limit){this.transientUrl=url;return url;}
+      while(this.cache.size&&(this.cache.size>=40||this.cacheBytes+blob.size>limit)){
+        const [key,old]=this.cache.entries().next().value;URL.revokeObjectURL(old.url);this.cacheBytes-=old.size;this.cache.delete(key);
       }
-      if (current()) await play(0, prepare(0));
-    } catch (error) { fail(error); }
+      this.cache.set(text,{url,size:blob.size});this.cacheBytes+=blob.size;return url;
+    } catch(error) {
+      if(timedOut)throw new Error('准备声音等待太久了，请老师检查本机服务，再点聊天小伙伴重听。');
+      throw error;
+    } finally {clearTimeout(timer);signal.removeEventListener('abort',abort);}
+  }
+  async speak(text,onDone,playback={}) {
+    this.stop();const epoch=this.epoch,controller=this.controller=new AbortController();
+    const current=()=>epoch===this.epoch&&!controller.signal.aborted;
+    const requestedAt=performance.now(),value=String(text).trim(),callDirectory=getDiaryTheme(this.themeId).callDirectory;
+    let finished=false,firstAudio=true;
+    const fail=error=>{
+      if(!current()||finished||error.name==='AbortError')return;
+      finished=true;controller.abort();this.audio?.pause();this.audio=null;this.releaseTransient();this.onState(false);playback.onError?.();
+      this.onError(error.name==='NotAllowedError'?'点一下聊天小伙伴，开启声音引导。':error.message);
+    };
+    const playFile=(url,cue=false)=>new Promise((resolve,reject)=>{
+      if(!current()){resolve();return;}
+      const audio=this.audio=new Audio(url);let started=false,timer;
+      const clean=()=>{clearTimeout(timer);controller.signal.removeEventListener('abort',abort);audio.onended=audio.onerror=audio.onplaying=null;if(this.audio===audio)this.audio=null;};
+      const abort=()=>{audio.pause();clean();reject(new DOMException('Stopped','AbortError'));};
+      controller.signal.addEventListener('abort',abort,{once:true});
+      audio.onplaying=()=>{
+        if(!current()||started)return;
+        started=true;clearTimeout(timer);
+        console.debug('[voice] playback '+JSON.stringify({wholeReply:!cue,cue:cue||undefined,firstAudioMs:firstAudio?Math.round(performance.now()-requestedAt):undefined}));
+        firstAudio=false;this.onState(true);if(cue)playback.onCue?.();else playback.onChunk?.(value);
+      };
+      audio.onended=()=>{clean();resolve();};
+      audio.onerror=()=>{audio.pause();clean();reject(new Error('声音没有播出来，请老师检查扬声器，再点聊天小伙伴重听。'));};
+      timer=setTimeout(()=>{audio.pause();clean();reject(new Error('浏览器还没有开始播放，请老师打开这个页面，再点聊天小伙伴重听。'));},15000);
+      audio.play().catch(error=>{clean();reject(error);});
+    });
+    try {
+      if(!value){finished=true;onDone?.();return;}
+      this.onState(false,{phase:'preparing'});playback.onPreparing?.();
+      await this.refreshSettings(controller.signal);
+      // The full utterance is synthesized once. No sentence splitting, lookahead
+      // requests or background generation compete with the child's reply.
+      const url=await this.prepare(value,controller.signal);
+      if(!current())return;
+      await playback.beforePlay?.(controller.signal);
+      if(!current())return;
+      if(playback.duckCall==='prefix')await playFile(callDirectory+'/prefix.wav','prefix');
+      if(!current())return;
+      await playFile(url);
+      if(!current())return;
+      if(playback.duckCall==='suffix')await playFile(callDirectory+'/suffix.wav','suffix');
+      if(!current())return;
+      finished=true;this.controller=null;this.releaseTransient();this.onState(false);onDone?.();
+    } catch(error){fail(error);}
   }
 }

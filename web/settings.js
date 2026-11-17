@@ -12,7 +12,7 @@ function controls(){
   $('#save-theme').disabled=busy||recording||restoring||selectedThemeId===savedThemeId;
   $('#preview-theme').disabled=busy||recording||restoring;
   $('#mic').disabled=busy||restoring;$('#listen').disabled=busy||recording||restoring;
-  $('#voice-choice').disabled=busy||recording||restoring;$('#speech-rate').disabled=busy||recording||restoring;$('#save-voice').disabled=busy||recording||restoring;
+  $('#voice-choice').disabled=true;$('#speech-rate').disabled=busy||recording||restoring;$('#save-voice').disabled=busy||recording||restoring;
   $('#restore-file').disabled=restoring||busy||recording;$('#restore').disabled=restoring||busy||recording;
   $('#rerecord-device').hidden=!pending;$('#rerecord-device').disabled=busy||recording||restoring;
   $('#retry-recording').hidden=!pending;$('#retry-recording').disabled=busy||recording||restoring;
@@ -65,11 +65,13 @@ function showStatus(value){
 async function loadSettings(){
   settings=await api('settings',undefined,'GET');showStatus(settings);selectedThemeId=savedThemeId=getDiaryTheme(settings.diaryThemeId).id;applyTeacherTheme(savedThemeId);showTheme();$('#conversation-rounds').value=settings.conversationRounds??3;
   for(const input of document.querySelectorAll('#settings-form input'))if(input.name!=='apiKey')input.value=settings[input.name]||'';
-  const voices=settings.localVoice?.voices||[];
-  const names={'zf_001':'中文女声一','zf_002':'中文女声二','zf_003':'中文女声三','zf_004':'中文女声四','zm_009':'中文男声'};
-  $('#voice-choice').replaceChildren(new Option('默认中文女声',''),...voices.map(voice=>new Option(names[voice]||voice,voice)));
-  $('#voice-choice').value=voices.includes(settings.voice)?settings.voice:'';
-  $('#speech-rate').value=String(settings.speechRate??1.05);
+  const voice=settings.localVoice?.defaultVoice||'qwen-girl-curious';
+  const label=settings.localVoice?.voiceLabels?.[voice]||'好奇女孩';
+  $('#voice-choice').replaceChildren(new Option(label,voice));
+  $('#voice-choice').value=voice;
+  const rate=settings.speechRate??1.0;
+  if(![...$('#speech-rate').options].some(option=>Number(option.value)===rate))$('#speech-rate').add(new Option(`${rate} 倍 · 已保存`,String(rate)));
+  $('#speech-rate').value=String(rate);
 }
 try{await loadSettings();const health=await api('health',undefined,'GET');$('#environment').textContent=[health.platform,health.release,health.architecture,'Python '+health.python].join(' / ');}catch(e){message(e.message);}
 $('#refresh-status').onclick=async()=>{try{showStatus(await api('settings',undefined,'GET'));}catch(e){message(e.message);}};
@@ -127,6 +129,6 @@ const markSection=()=>{
   for(const link of links)if(link.hash==='#'+current.id)link.setAttribute('aria-current','location');else link.removeAttribute('aria-current');
 };
 window.addEventListener('scroll',markSection,{passive:true});markSection();
-for(const selector of ['#voice-choice','#speech-rate'])$(selector).onchange=()=>feedback('#voice-status','声音设置尚未保存；试听使用已保存的声音。');
+$('#speech-rate').onchange=()=>feedback('#voice-status','语速尚未保存；试听使用已保存的语速。');
 $('#conversation-rounds').oninput=()=>feedback('#rounds-status','轮数尚未保存。');
 for(const input of document.querySelectorAll('#settings-form input'))input.addEventListener('input',()=>feedback('#config-save-status','对话设置尚未保存。'));

@@ -10,7 +10,21 @@
 
 [教师使用说明](docs/user-guide.md) · [产品范围与交互约定](docs/product.md) · [后续开发说明](docs/development-start.md) · [IP 与声音素材](docs/mascot.md)
 
-声音工作当前暂停：保留已接入的素材与实现，本次不选材、不处理、不扩展试听。此前鹦鹉与仓鼠随机音效接入装修，新增 `/animal-call-preview.html`（教师设置内也有入口）。在 8775 隔离资料实例通过实际浏览器验证两种独立音效、鹦鹉句首 / 仓鼠句尾与本机真实中文 TTS 衔接、随机试听及 Esc 停止；JavaScript 语法检查通过，未新增测试代码。设备听感待用户试听确认，Windows 未验证。
+## 当前声音：Qwen 好奇女孩（2026-11-17）
+
+用户从本地试听中选定“好奇女孩”。正式播音已替换为 Qwen3-TTS 1.7B Base，固定使用随项目附带的合成参考音频。默认沿用试听轻快版：整段平均约 3.55 汉字/秒、保持音高的变速与 -23 LUFS 音量对齐；变速范围限制在 0.75–1.4，不能保证每句话恰好达到目标。MyEval 已确定的对话提示词与措辞不在本轮修改范围。
+
+每次回复整段合成，不再分句、前瞻或排队生成。识别→接话→合成共用一次等待：超过 800ms，从随包附带的 10 条短提示中随机播放一条，避开上一条；每条 1.39–1.96 秒。回复就绪时等当前短提示自然结束再播，失败、退出、换人会停止旧播放与合成。17 条常用引导和安全退出提示也已预生成，模型忙时仍可播放。后端只有一个合成槽位，其他窗口的实时请求会得到明确忙碌提示，不积压旧回复。
+
+Mac 使用 MLX 4-bit；Windows x64 + NVIDIA 使用独立 CUDA/PyTorch 环境和官方 Base 权重，共用同一参考音色。安装/运行代码、参考音频、预生成音频、版本与文件校验清单均在项目内；运行不依赖 `.acceptance` 或个人模型缓存。权重位于被 Git 忽略的 `models/`，完整离线发行包将权重、Python 和依赖一起携带。语音推理不访问云端语音 API。
+
+本机集成检查使用 M1 Pro / 16GB：一条冻结 MyEval 回复生成 15.17 秒音频，完整合成与后处理 5.91 秒；单次实测，不能当作稳定时延承诺。活动合成取消约 22ms，随后可重新加载生成；模型忙时固定退出提示约 1ms 取得。10 条等待音频经本地辅助转写逐字匹配，仍需人耳判断。Windows / RTX 4060 尚未实测。
+
+在 `8787` 隔离虚构资料中，实际 Chrome 操作完成真实新 C 接话→Qwen 整段播放→固定收尾→自动保存，SQLite/HTTP 读回一条记录、原话一致、`summaryFallback:false`。长语音准备中按 Esc 返回选人，合成进程已停止、草稿保留、没有新增记录。旧验收服务配置最初接话失败，换用本轮 MyEval 已用的运行时配置后通过；没有把该失败记为成功，也没有修改正式资料或打包密钥。
+
+Mac 离线包已解压到独立目录，用包内 Python 与两组依赖，在操作系统禁止所有网络、禁止读取原项目模型/虚拟环境/原 Python 的条件下，完成实际 Qwen 合成和 SenseVoice 识别。该次冷路径约 44 秒（含首次加载、依赖初始化和识别，不是单次回复耗时）。证据保存在 `.acceptance/qwen-integration-20261117/`；真实儿童声音、设备听感与 Windows 仍待验收。未新增单元测试。
+
+旧动物音效试听入口 `/animal-call-preview.html` 保留，叫声是预录文件，语音正文使用新的本地声音。
 
 ## 当前默认：新 C 日记本朋友（2026-11-13）
 
@@ -125,7 +139,7 @@
 
 ![声音与语速设置](docs/screenshots/42-speech-rate.png)
 
-声音可选，语速提供 0.85、0.95、1.05、1.15、1.25 五档，默认 1.05；保存后下一次播音生效。运行应用后可打开[三个小伙伴音效试听页](http://127.0.0.1:8775/animal-call-preview.html)，比较独立音效、句首和句尾；鹦鹉与仓鼠素材及处理见[来源说明](web/assets/animal-call/README.md)。也可打开[鸭叫试听页](http://127.0.0.1:8768/quack-preview.html?source=qubodup)，对比原句、句首和句尾，或切回上一版素材。
+音色固定为好奇女孩；语速默认 1.0（试听轻快版），可调整，保存后下一次播音生效。旧 Kokoro 音色及其语速自动切换到新默认；之后教师保存的 Qwen 语速继续保留。运行应用后可打开[三个小伙伴音效试听页](http://127.0.0.1:8768/animal-call-preview.html)，比较独立音效、句首和句尾；鹦鹉与仓鼠素材及处理见[来源说明](web/assets/animal-call/README.md)。上图为旧版声音设置截图。
 
 [查看历史操作录像（MP4，约 5 分 17 秒）](docs/videos/v2-operation.mp4)
 
@@ -140,7 +154,7 @@ git clone https://github.com/ZB-ur/pomegranagent-v2.git
 cd pomegranagent-v2
 ```
 
-需要 **Python 3.12，64 位**。正式前端是原生浏览器模块，无需 Node.js、npm 或前端构建。仓库不包含 API 密钥、数据库、课堂录音、语音模型或虚拟环境。
+源码运行需要 **Python 3.12，64 位**；完整离线发行包已携带 Python、依赖与本机模型，解压后双击对应 `launch` 文件即可。Mac 需要 Apple Silicon；Windows 需要 NVIDIA 显卡与支持 CUDA 12.8 的驱动。正式前端是原生浏览器模块，无需 Node.js、npm 或前端构建。Git 仓库不包含 API 密钥、数据库、课堂录音、模型权重或虚拟环境；发行包也不包含课堂资料和密钥。
 
 | 步骤 | macOS | Windows |
 | --- | --- | --- |
@@ -148,7 +162,16 @@ cd pomegranagent-v2
 | 首次准备语音 | 双击 `setup-voice.command` | 双击 `setup-voice.bat` |
 | 启动应用 | 双击 `launch.command` | 双击 `launch.bat` |
 
-准备脚本在项目内创建 `.venv`、安装固定版本依赖并下载模型，不修改全局配置。首次模型下载约 528 MB，解压约 661 MiB；建议预留至少 2 GB 空间用于下载与准备。下载经 SHA256 校验，来源、版本及许可证随模型保存在 `models/`。再次准备会跳过已完整安装的模型。
+源码的 `launch` 会检查语音安装，缺少时调用准备脚本。脚本在项目内创建 `.venv`（应用/识别）和 `.venv-tts`（Qwen），安装固定依赖与模型，不修改全局配置。Qwen 权重 Mac 约 2.34GB、Windows 约 4.54GB，另有 SenseVoice 与运行依赖；建议分别预留 8GB / 14GB。首次准备需要联网，模型按固定 revision 和哈希校验，支持大文件断点续传；正常推理只读本地文件。来源清单见 [Qwen 模型清单](assets/voice/qwen-models.json) 和 [许可说明](assets/voice/THIRD_PARTY_NOTICES.txt)。旧 Kokoro 文件不再使用，也不打入新包。
+
+在已完成准备的目标系统上制作离线包（不会包含资料和服务密钥）：
+
+```sh
+.venv/bin/python scripts/package_local.py --output /你的输出目录/PomegranagentV2-mac-arm64.tar.gz
+# Windows 使用 .venv\Scripts\python.exe 执行同一脚本，在 Windows 上制包。
+```
+
+必须在对应系统制作包，Mac 包不能直接拿到 Windows 运行。完整包优先使用随附的 `.runtime/python` 和两组依赖目录，无需全局 Python；对话服务仍需教师配置已有账户。
 
 也可以在准备完成后从终端启动：
 
@@ -191,14 +214,14 @@ cd pomegranagent-v2
 | 收尾倒计时内继续 | 空格，仅未达轮数上限时 |
 | 收尾倒计时内立即保存 | 回车或点击小本子 |
 
-识别、AI 等待和回复播放期间有状态反馈，相关按钮和快捷键被锁定，防止误触。每句正文在实际开始播放时显示；鸭叫不冒充文字发言。句间等待保持同一 IP 姿态，必要时暂停动作。等待超过 15 秒提供带确认的安全退出入口，停止客户端等待并保留当前草稿/暂存录音；不会冒报完成。
+识别、AI 等待和回复播放期间有状态反馈，相关按钮和快捷键被锁定。整段正文在实际开始播放时显示；鸭叫不冒充文字发言。等待短提示与正式回复依次播放。等待超过 15 秒提供带确认的安全退出入口，停止客户端等待和本机合成并保留当前草稿/暂存录音；不会冒报完成。整段朗读上限 4000 字，超限明确提示，不截断原文；实时合成超时为 180 秒。
 
 ## 服务与数据如何流动
 
 ```text
 浏览器麦克风（空格明确停止）
   → 本机 SenseVoice 识别 → SQLite 文字草稿
-  → DeepSeek 根据上下文回应 → 本机 Kokoro 播音 + 偶尔预录鸭叫
+  → DeepSeek 根据上下文回应 → 本机 Qwen 好奇女孩整段播音 + 偶尔预录鸭叫
   → 收尾后 DeepSeek 整理 → SQLite 记录 → 教师核对 / 找回 / 备份
 ```
 
@@ -207,7 +230,7 @@ cd pomegranagent-v2
 | 界面与录音 | HTML / CSS / JavaScript ES modules；MediaRecorder |
 | 本机服务与数据库 | Python 标准库 HTTP 服务、SQLite 事务与 revision 冲突保护 |
 | 语音识别 | SenseVoice Small int8，sherpa-onnx CPU |
-| 中文合成 | Kokoro v1.1 zh，sherpa-onnx CPU，音色/语速分别缓存 |
+| 中文合成 | Qwen3-TTS 1.7B Base，固定好奇女孩参考；Mac MLX 4-bit / Windows CUDA，语速独立缓存 |
 | 录音解码 | PyAV；无需全局 ffmpeg |
 | 对话与整理 | DeepSeek Chat Completions；接话使用 JSON 格式返回内容和结束标记 |
 | 姓名搜索 | 本地 pinyin-pro，不通过网络查询幼儿姓名 |
@@ -273,7 +296,7 @@ Computer Use 在 `127.0.0.1:8776` 的独立虚构资料中确认首轮具体鼓�
 
 历史亲切反馈复审（下述 100–180 字约定已由 2026-10-26 本轮规则替代）：用户实际两轮反馈暴露出“我放心了／我更放心了”的空泛重复。已取消“一句就够”和除纠正外禁复述的过度限制，采用本次用户确认的核心 prompt：普通交流通常四到六句、约 100–180 字，明确肯定具体照顾、观察和尝试，可以结合必要关键细节但不逐项重讲，不用鸭鸭自己的感受代替接话。低强度思考、追问控制和忠实整理保持。当前草稿与原有记录不修改，下一次接话使用新 prompt；已按用户最新反馈将普通交流调整为四到六句、约 100–180 字。真实虚构连续两轮分别生成四句和五句，末轮未追加追问；样本仍存在复述及修饰性扩写，未宣称整体语气已通过。Python 语法和差异检查通过，8768 已加载新 prompt，原有资料哈希未变。2026-09-10 用户确认本版效果并要求提交；这不替代未访问平台及真实儿童群体的独立验收。
 
-本次保留现有 Kokoro 合成方案。语速、停顿与断句的进一步试听优化暂缓，未把调研建议作为已实施功能。
+上述历史交付使用 Kokoro；2026-11-17 已按用户选定音色替换为 Qwen，见本文开头。
 
 首次使用需允许浏览器站点录音权限，并检查 macOS“隐私与安全性 → 麦克风”或 Windows“隐私和安全性 → 麦克风”的桌面应用访问。用真实扬声器和麦克风确认音量、输入设备及中文可懂度。识别可能混淆“鸭鸭/丫丫”等近音词；记录保留识别结果供教师核对，不自动编造修正。
 
@@ -304,7 +327,7 @@ AGENTS.md                项目开发和验收规则
 - 正式鸭叫：qubodup 的 [Duck Quack](https://freesound.org/people/qubodup/sounds/442820/)，改编自 dobroide 的 [20130403_duck.04.wav](https://freesound.org/people/dobroide/sounds/185134/)，采用 CC BY 4.0；本应用做柔化、降音量、淡入淡出及拼接。[完整署名与处理说明](web/assets/duck-call/README.md)。
 - 上一版试听素材、当前试听样音及其授权：[试听素材目录](web/assets/quack-preview/README.md)。
 - 本地拼音搜索：[pinyin-pro 3.29.3 / MIT](web/vendor/pinyin-pro/README.md)。
-- 本机语音模型：版本、来源和哈希固定在 [准备脚本](scripts/setup_voice.py)，安装后保留模型包许可证与 `models/sources.json`。Kokoro 包含 Apache 2.0 正文；SenseVoice 包内许可引用 FunASR 授权说明，不将所有模型一概标成同一种许可证。
+- 本机语音模型：版本、来源和哈希固定在 [准备脚本](scripts/setup_voice.py) 与 [Qwen 清单](assets/voice/qwen-models.json)。Qwen Apache 2.0 许可附在项目内；SenseVoice 包内许可引用 FunASR 授权说明，不将所有模型一概标成同一种许可证。
 
 后续维护请先读 [AGENTS.md](AGENTS.md) 和[产品说明](docs/product.md)，按新反馈验证受影响路径。后续优先让儿童试用精简引导、具体鼓励和新姿态，并补齐有条件访问的目标设备记录。
 

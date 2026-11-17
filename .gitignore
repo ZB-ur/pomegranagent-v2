@@ -4,8 +4,10 @@ __pycache__/
 .env
 *.sqlite3*
 .venv/
+.venv-tts/
 .runtime/
 models/
+releases/
 
 # Local editor state, credentials and exported classroom data
 .codex/

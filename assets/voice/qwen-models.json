@@ -1,0 +1,142 @@
+{
+  "version": 1,
+  "mlx": {
+    "repository": "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-4bit",
+    "revision": "37e955a1deb861c088ae5f3a67043185f3d1a60c",
+    "directory": "qwen3-tts-base-mlx-4bit",
+    "files": [
+      {
+        "path": "README.md",
+        "size": 1026,
+        "sha256": "21e7151db9b6316009265b788411a3e57d83651c40c653213b98f28a36a75bb8"
+      },
+      {
+        "path": "config.json",
+        "size": 5522,
+        "sha256": "36477d07e2ac89f79c1410a9782ed69860fbfcc871edea1728624389072e25fd"
+      },
+      {
+        "path": "generation_config.json",
+        "size": 245,
+        "sha256": "f1b90b4513f3b34c62851049e2492d7b4c5940daf1276f89c82b8ef04127f3aa"
+      },
+      {
+        "path": "merges.txt",
+        "size": 1671839,
+        "sha256": "599bab54075088774b1733fde865d5bd747cbcc7a547c5bc12610e874e26f5e3"
+      },
+      {
+        "path": "model.safetensors",
+        "size": 1649238423,
+        "sha256": "ac973aa38ec79d4b4b52bf858948f0d47dd909aa4bcd383f5b900e277410fdb5"
+      },
+      {
+        "path": "model.safetensors.index.json",
+        "size": 78070,
+        "sha256": "2b71cbd2c84cb59d0d71383cc55166ad7108180bfd7e47d2e3a6698f3721abfb"
+      },
+      {
+        "path": "preprocessor_config.json",
+        "size": 127,
+        "sha256": "efdde1022ea9d76928bf7a9cd53139138f5ba2e466e837f08f6105ab1af1c119"
+      },
+      {
+        "path": "speech_tokenizer/config.json",
+        "size": 2336,
+        "sha256": "ee65bb901c876664ab8707c487157aa1a6ee57c65969b28fb5ec9dc211e68167"
+      },
+      {
+        "path": "speech_tokenizer/configuration.json",
+        "size": 76,
+        "sha256": "6bc26d64eb5024b4d1dab5a52371958b429256d6c9d59787f1f5294a54e0cebd"
+      },
+      {
+        "path": "speech_tokenizer/model.safetensors",
+        "size": 682293092,
+        "sha256": "836b7b357f5ea43e889936a3709af68dfe3751881acefe4ecf0dbd30ba571258"
+      },
+      {
+        "path": "speech_tokenizer/preprocessor_config.json",
+        "size": 234,
+        "sha256": "fcb3805e597e786d4067706e602f6688524640f8d3396790e2e09b5942fcbdfb"
+      },
+      {
+        "path": "tokenizer_config.json",
+        "size": 7344,
+        "sha256": "dc3c31c3bdaedd5016382bb3cbe07323026775ad51f5a4fb564505992ae4a670"
+      },
+      {
+        "path": "vocab.json",
+        "size": 2776833,
+        "sha256": "ca10d7e9fb3ed18575dd1e277a2579c16d108e32f27439684afa0e10b1440910"
+      }
+    ]
+  },
+  "cuda": {
+    "repository": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+    "revision": "fd4b254389122332181a7c3db7f27e918eec64e3",
+    "directory": "qwen3-tts-base-cuda",
+    "files": [
+      {
+        "path": "README.md",
+        "size": 57817,
+        "gitBlobSha1": "ec53071d0e37736a91918b25b201080ba7776be4"
+      },
+      {
+        "path": "config.json",
+        "size": 4494,
+        "gitBlobSha1": "81b57e8e790c07e8fa7f82d8bdfd7574d485c396"
+      },
+      {
+        "path": "generation_config.json",
+        "size": 245,
+        "gitBlobSha1": "1872b16d4535564abf2db5d6debe6cddd82b7f2e"
+      },
+      {
+        "path": "merges.txt",
+        "size": 1671839,
+        "gitBlobSha1": "20024bfe7c83998e9aeaf98a0cd6a2ce6306c2f0"
+      },
+      {
+        "path": "model.safetensors",
+        "size": 3857413744,
+        "sha256": "38fc7fc51c5e776e840414b6fd443962e9411b9654888fd7913e4da643cb857c"
+      },
+      {
+        "path": "preprocessor_config.json",
+        "size": 127,
+        "gitBlobSha1": "0525dd953bb9241912f7147666f0d535165d5d4f"
+      },
+      {
+        "path": "speech_tokenizer/config.json",
+        "size": 2336,
+        "gitBlobSha1": "06cc8dc4c5ec8a1929086b71b98c313020d9268b"
+      },
+      {
+        "path": "speech_tokenizer/configuration.json",
+        "size": 76,
+        "gitBlobSha1": "ab58e2eaf53cd14a1a2a7527d9261ceea93a24cd"
+      },
+      {
+        "path": "speech_tokenizer/model.safetensors",
+        "size": 682293092,
+        "sha256": "836b7b357f5ea43e889936a3709af68dfe3751881acefe4ecf0dbd30ba571258"
+      },
+      {
+        "path": "speech_tokenizer/preprocessor_config.json",
+        "size": 234,
+        "gitBlobSha1": "ba40914f4f49ab98a8ca545d4892ef7291a39592"
+      },
+      {
+        "path": "tokenizer_config.json",
+        "size": 7344,
+        "gitBlobSha1": "6ff9fd60cc623bb54bbd603cbd418c97a11528d7"
+      },
+      {
+        "path": "vocab.json",
+        "size": 2776833,
+        "gitBlobSha1": "4783fe10ac3adce15ac8f358ef5462739852c569"
+      }
+    ]
+  }
+}
