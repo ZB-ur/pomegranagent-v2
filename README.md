@@ -10,13 +10,17 @@
 
 [教师使用说明](docs/user-guide.md) · [产品范围与交互约定](docs/product.md) · [后续开发说明](docs/development-start.md) · [IP 与声音素材](docs/mascot.md)
 
-## 当前声音：Qwen 好奇女孩（2026-11-17）
+## 当前声音：Qwen 好奇女孩（2026-11-19）
 
 用户从本地试听中选定“好奇女孩”。正式播音已替换为 Qwen3-TTS 1.7B Base，固定使用随项目附带的合成参考音频。默认沿用试听轻快版：整段平均约 3.55 汉字/秒、保持音高的变速与 -23 LUFS 音量对齐；变速范围限制在 0.75–1.4，不能保证每句话恰好达到目标。MyEval 已确定的对话提示词与措辞不在本轮修改范围。
 
 每次回复整段合成，不再分句、前瞻或排队生成。识别→接话→合成共用一次等待：超过 800ms，从随包附带的 10 条短提示中随机播放一条，避开上一条；每条 1.39–1.96 秒。回复就绪时等当前短提示自然结束再播，失败、退出、换人会停止旧播放与合成。17 条常用引导和安全退出提示也已预生成，模型忙时仍可播放。后端只有一个合成槽位，其他窗口的实时请求会得到明确忙碌提示，不积压旧回复。
 
-Mac 使用 MLX 4-bit；Windows x64 + NVIDIA 使用独立 CUDA/PyTorch 环境和官方 Base 权重，共用同一参考音色。安装/运行代码、参考音频、预生成音频、版本与文件校验清单均在项目内；运行不依赖 `.acceptance` 或个人模型缓存。权重位于被 Git 忽略的 `models/`，完整离线发行包将权重、Python 和依赖一起携带。语音推理不访问云端语音 API。
+Mac 默认使用 MLX 4-bit；Windows x64 + NVIDIA 默认使用 GGUF Q4_K_M / llama.cpp CUDA，原有 PyTorch BF16 保留为显式对照。三者共用固定参考音色和语速、音量处理。GGUF 固定 llama.cpp `b12503`，包含完整参考音色编码器的 BF16 辅助权重，使用参考声音及原文进行 ICL 克隆；没有采用公开下载版中缺编码器的辅助权重。所有模型在本机运行，不访问云端语音 API。
+
+安装/运行代码、参考音频、预生成音频、版本与文件校验清单均在项目内；运行不依赖 `.acceptance` 或个人模型缓存。权重位于被 Git 忽略的 `models/`；GitHub Release 的 Windows 运行包和模型包携带 Python、依赖、CUDA 运行库、SenseVoice 与 GGUF。NVIDIA 驱动仍由系统提供。BF16 首次选用时按需准备，已存在的旧权重会校验后复用。
+
+2026-11-19 集成检查：M1 Pro 上通过正式封装分别生成首轮及三条热机语音，MLX 热机 5.48–6.87 秒、GGUF Metal 10.20–12.94 秒；均为同一组虚构回复，不能外推为 Windows 性能。GGUF 主模型 29/29 层和辅助模型实际在 GPU；忙碌请求被拒绝、预录引导仍可取得、活动合成约 129ms 取消，随后能重新生成。实际应用设置页完成 GGUF 中文引导生成、播放至结束，控制台无前端错误。Windows 包只完成文件、哈希与 DLL 依赖检查，下一项验收是 RTX 4060 上运行 `benchmark-voice.bat` 并试听。相关证据在忽略目录 `.acceptance/qwen-windows-integration-20261119/`，未新增单元测试。
 
 本机集成检查使用 M1 Pro / 16GB：一条冻结 MyEval 回复生成 15.17 秒音频，完整合成与后处理 5.91 秒；单次实测，不能当作稳定时延承诺。活动合成取消约 22ms，随后可重新加载生成；模型忙时固定退出提示约 1ms 取得。10 条等待音频经本地辅助转写逐字匹配，仍需人耳判断。Windows / RTX 4060 尚未实测。
 
@@ -154,7 +158,9 @@ git clone https://github.com/ZB-ur/pomegranagent-v2.git
 cd pomegranagent-v2
 ```
 
-源码运行需要 **Python 3.12，64 位**；完整离线发行包已携带 Python、依赖与本机模型，解压后双击对应 `launch` 文件即可。Mac 需要 Apple Silicon；Windows 需要 NVIDIA 显卡与支持 CUDA 12.8 的驱动。正式前端是原生浏览器模块，无需 Node.js、npm 或前端构建。Git 仓库不包含 API 密钥、数据库、课堂录音、模型权重或虚拟环境；发行包也不包含课堂资料和密钥。
+源码运行需要 **Python 3.12，64 位**；离线发行包已携带 Python、依赖与本机模型。Mac 需要 Apple Silicon；Windows 需要 x64 + NVIDIA 显卡，默认 GGUF 使用 CUDA 12.4 运行库，BF16 对照使用 PyTorch CUDA 12.8，建议安装当前 NVIDIA 驱动。无需单独安装 CUDA Toolkit。正式前端是原生浏览器模块，无需 Node.js、npm 或前端构建。Git 仓库不包含 API 密钥、数据库、课堂录音、模型权重或虚拟环境；发行包也不包含课堂资料和密钥。
+
+**Windows / RTX 4060 发行包：** 打开 [voice-gguf-20261119 Release](https://github.com/ZB-ur/pomegranagent-v2/releases/tag/voice-gguf-20261119)，下载 `PomegranagentV2-windows-x64-runtime.zip` 和 `PomegranagentV2-windows-x64-gguf-models.zip`，将两者解压合并到同一个文件夹。确认 `PomegranagentV2` 下同时有 `launch.bat`、`.runtime` 和 `models`，再双击 `launch.bat`。包使用官方 Windows 二进制与便携 Python 在 Mac 上交叉组装；归档校验不等于 Windows 实机验收，RTX 4060 的速度、音频和启动兼容性仍由设备实测确认。
 
 | 步骤 | macOS | Windows |
 | --- | --- | --- |
@@ -162,7 +168,24 @@ cd pomegranagent-v2
 | 首次准备语音 | 双击 `setup-voice.command` | 双击 `setup-voice.bat` |
 | 启动应用 | 双击 `launch.command` | 双击 `launch.bat` |
 
-源码的 `launch` 会检查语音安装，缺少时调用准备脚本。脚本在项目内创建 `.venv`（应用/识别）和 `.venv-tts`（Qwen），安装固定依赖与模型，不修改全局配置。Qwen 权重 Mac 约 2.34GB、Windows 约 4.54GB，另有 SenseVoice 与运行依赖；建议分别预留 8GB / 14GB。首次准备需要联网，模型按固定 revision 和哈希校验，支持大文件断点续传；正常推理只读本地文件。来源清单见 [Qwen 模型清单](assets/voice/qwen-models.json) 和 [许可说明](assets/voice/THIRD_PARTY_NOTICES.txt)。旧 Kokoro 文件不再使用，也不打入新包。
+源码的 `launch` 会检查语音安装，缺少时调用准备脚本。脚本在项目内创建 `.venv`（应用/识别/GGUF 音频处理）；MLX 或 BF16 另用 `.venv-tts`，不修改全局配置。Qwen 权重 Mac 约 2.34GB、Windows GGUF 约 1.88GB、可选 BF16 约 4.54GB，另有 SenseVoice 与运行依赖；Mac 建议预留 8GB，Windows GGUF 建议预留 10GB，另装 BF16 再预留 12GB。首次准备需要联网，模型按固定 revision 和哈希校验，支持大文件断点续传；正常推理只读本地文件。来源清单见 [Qwen 模型清单](assets/voice/qwen-models.json) 和 [许可说明](assets/voice/THIRD_PARTY_NOTICES.txt)。旧 Kokoro 文件不再使用，也不打入新包。
+
+### Windows 上切换与比较声音后端
+
+- `launch.bat`：默认 GGUF。原有幼儿档案和教师配置沿用应用既有资料目录。
+- `launch-bf16.bat`：本次启动使用原有 BF16。首次缺少依赖或权重会自动准备；不会改写默认选型。
+- `benchmark-voice.bat`：先关闭正在运行的日记服务，插上电源，再双击。顺序测试 GGUF、BF16，使用同一组 3 条虚构 MyEval 回复、同一参考音色，每种后端测 1 条首轮及 6 条热机语音，绕过成品音频缓存。脚本不读取课堂资料，也不调用对话 API。
+
+对比结果保存在 `voice-benchmarks/日期时间/`，旁边的同名 ZIP 可直接发回。`report.json` 包含显卡/驱动、模型版本、逐条总耗时、加载、纯合成、后处理和音频时长；`timings.csv` 可用 Excel 查看，WAV 可试听。`first` 包含首次模型加载与合成；`warm` 复用已加载模型。RTF = 生成总耗时 / 成品音频时长，小于 1 表示生成快于播放；另记录原始音频时长和 rawRtf，避免统一变速掩盖差异。不把首轮或 6 条样本当作长期稳定延迟承诺。
+
+只测试某一种或缩短对比时，可使用项目 Python 执行：
+
+```powershell
+# 源码环境；便携包替换为 .runtime\python\python.exe 并沿用启动脚本的 PYTHONPATH
+.venv\Scripts\python.exe scripts\benchmark_voice.py --backends gguf bf16 --repeats 1
+```
+
+高级选择用 `DUCK_TTS_BACKEND=auto|mlx|gguf|bf16`；启动前设置，整个进程保持同一后端。`/api/health` 的 `localVoice.ttsBackend` 和 `local_tts` 日志显示实际选择。GGUF 只绑定随机 `127.0.0.1` 端口、使用临时内部凭证；要求主模型与音色编码器都加载到 GPU，取消或退出会终止本次拥有的引擎进程，不提供 CPU 静默回退。
 
 在已完成准备的目标系统上制作离线包（不会包含资料和服务密钥）：
 
@@ -171,7 +194,7 @@ cd pomegranagent-v2
 # Windows 使用 .venv\Scripts\python.exe 执行同一脚本，在 Windows 上制包。
 ```
 
-必须在对应系统制作包，Mac 包不能直接拿到 Windows 运行。完整包优先使用随附的 `.runtime/python` 和两组依赖目录，无需全局 Python；对话服务仍需教师配置已有账户。
+`package_local.py` 在目标系统制作对应离线包；另有 `scripts/package_windows.py` 从固定官方 Windows 运行时、wheels 和 CUDA 二进制组装双 ZIP，源码只取指定 Git 提交。Mac 包不能直接拿到 Windows 运行。包优先使用随附的 `.runtime/python` 和依赖目录，无需全局 Python；对话服务仍需教师配置已有账户。
 
 也可以在准备完成后从终端启动：
 
@@ -230,7 +253,7 @@ cd pomegranagent-v2
 | 界面与录音 | HTML / CSS / JavaScript ES modules；MediaRecorder |
 | 本机服务与数据库 | Python 标准库 HTTP 服务、SQLite 事务与 revision 冲突保护 |
 | 语音识别 | SenseVoice Small int8，sherpa-onnx CPU |
-| 中文合成 | Qwen3-TTS 1.7B Base，固定好奇女孩参考；Mac MLX 4-bit / Windows CUDA，语速独立缓存 |
+| 中文合成 | Qwen3-TTS 1.7B Base，固定好奇女孩参考；Mac MLX 4-bit / Windows GGUF CUDA（BF16 可选），语速独立缓存 |
 | 录音解码 | PyAV；无需全局 ffmpeg |
 | 对话与整理 | DeepSeek Chat Completions；接话使用 JSON 格式返回内容和结束标记 |
 | 姓名搜索 | 本地 pinyin-pro，不通过网络查询幼儿姓名 |

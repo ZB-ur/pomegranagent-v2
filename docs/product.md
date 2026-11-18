@@ -123,7 +123,7 @@
 
 ## 技术和数据决定
 
-正式应用采用 Python 标准库本机 HTTP 服务、SQLite 和原生浏览器模块，无前端构建步骤。录音用 MediaRecorder；SenseVoice Small int8 经 sherpa-onnx CPU 识别，Qwen3-TTS 1.7B Base 在独立本地进程合成，Mac 用 MLX 4-bit、Windows NVIDIA 用 CUDA。模型、参考音频、预生成提示和运行依赖可随离线包交付；退出可按请求编号终止本地合成，其他窗口的实时请求不排队。应用内对话与整理使用用户配置的 DeepSeek；开发使用的模型不决定应用服务。
+正式应用采用 Python 标准库本机 HTTP 服务、SQLite 和原生浏览器模块，无前端构建步骤。录音用 MediaRecorder；SenseVoice Small int8 经 sherpa-onnx CPU 识别，Qwen3-TTS 1.7B Base 在独立本地进程合成，Mac 保留 MLX 4-bit，Windows NVIDIA 默认 GGUF Q4_K_M / llama.cpp CUDA，保留原有 BF16 供设备对照。参考音色、完整回复、预生成等待提示和取消体验不因平台改变。模型、参考音频、预生成提示和运行依赖可随离线包交付；退出可按请求编号终止本地合成，其他窗口的实时请求不排队。应用内对话与整理使用用户配置的 DeepSeek；开发使用的模型不决定应用服务。
 
 录音只发往本机；聊天将本次对话、同一幼儿最多三篇相关故事的必要文字背景、幼儿称呼及动物名字/类型发往 DeepSeek，独立整理只发送本次儿童原话。照片与教师自由备注不发送。密钥只存在本机 SQLite 设置中，不回传前端、不进入备份；数据库未加密。
 

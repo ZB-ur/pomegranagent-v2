@@ -8,6 +8,7 @@ __pycache__/
 .runtime/
 models/
 releases/
+voice-benchmarks/
 
 # Local editor state, credentials and exported classroom data
 .codex/

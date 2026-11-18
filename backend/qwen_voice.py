@@ -34,25 +34,35 @@ class SpeechBusy(RuntimeError):
     pass
 
 
-def backend_name():
-    return "mlx" if sys.platform == "darwin" and platform.machine() == "arm64" else "cuda"
+def backend_name(value=None):
+    selected = (value or os.environ.get("DUCK_TTS_BACKEND", "auto")).strip().lower()
+    if selected == "auto":
+        return "mlx" if sys.platform == "darwin" and platform.machine() == "arm64" else "gguf"
+    if selected == "cuda":
+        selected = "bf16"  # Preserve the previous backend's explicit name.
+    if selected not in ("mlx", "gguf", "bf16"):
+        raise ValueError("DUCK_TTS_BACKEND 应为 auto、mlx、gguf 或 bf16。")
+    return selected
 
 
-def worker_python():
+def worker_python(kind=None):
     bundled = ROOT / ".runtime/python" / ("python.exe" if os.name == "nt" else "bin/python3.12")
     return bundled if bundled.is_file() else ROOT / ".venv-tts" / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
 
 
-def model_directory(model_root):
-    return Path(model_root) / ("qwen3-tts-base-mlx-4bit" if backend_name() == "mlx" else "qwen3-tts-base-cuda")
+def model_directory(model_root, kind=None):
+    names = {"mlx": "qwen3-tts-base-mlx-4bit", "bf16": "qwen3-tts-base-cuda", "gguf": "qwen3-tts-base-gguf"}
+    return Path(model_root) / names[backend_name(kind)]
 
 
 class QwenSpeech:
-    def __init__(self, model_root):
+    def __init__(self, model_root, backend=None):
         self.model_root = Path(model_root)
+        self.backend = backend_name(backend)
         self._operation = threading.Lock()
         self._state = threading.RLock()
         self._process = None
+        self._gguf = None
         self._active = None
         self._loaded = False
         self._warming = False
@@ -65,7 +75,10 @@ class QwenSpeech:
         atexit.register(self.close)
 
     def installed(self):
-        directory = model_directory(self.model_root)
+        directory = model_directory(self.model_root, self.backend)
+        if self.backend == "gguf":
+            from .qwen_gguf import installed
+            return installed(directory) and all((PROFILE / p).is_file() for p in ("profile.json", "reference.wav"))
         return worker_python().is_file() and all((directory / p).is_file() for p in (
             "config.json", "model.safetensors", "tokenizer_config.json", "vocab.json",
             "merges.txt", "speech_tokenizer/model.safetensors")) and all(
@@ -73,22 +86,25 @@ class QwenSpeech:
 
     def status(self):
         with self._state:
-            return {"installed": self.installed(), "loaded": self._loaded,
+            return {"installed": self.installed(), "loaded": bool(self._loaded and self._process and self._process.poll() is None),
                     "warming": self._warming, "error": self._error,
-                    "backend": backend_name(), "busy": self._active is not None}
+                    "backend": self.backend, "busy": self._active is not None}
 
     def _stop_worker(self):
         process, self._process = self._process, None
+        self._gguf = None
         self._loaded = False
         if process is not None:
             if process.poll() is None:
-                process.terminate()
+                # llama-server drains active inference on SIGTERM. It owns no
+                # persistent state, so stop immediately when speech is cancelled.
+                process.kill() if self.backend == "gguf" else process.terminate()
                 try:
                     process.wait(timeout=2)
                 except subprocess.TimeoutExpired:
                     process.kill()
                     process.wait(timeout=2)
-            for pipe in (process.stdin, process.stdout):
+            for pipe in (process.stdin, process.stdout, process.stderr):
                 if pipe:
                     pipe.close()
 
@@ -130,6 +146,8 @@ class QwenSpeech:
         raise RuntimeError("本地声音准备超时，请重听或请老师检查设备。")
 
     def _ensure_worker(self, request_id=None):
+        if self.backend == "gguf":
+            return self._ensure_gguf(request_id)
         with self._state:
             if request_id in self._cancelled:
                 raise SpeechCancelled("这次播音已停止。")
@@ -141,12 +159,13 @@ class QwenSpeech:
             env = dict(os.environ, HF_HUB_OFFLINE="1", TRANSFORMERS_OFFLINE="1",
                        HF_HUB_DISABLE_TELEMETRY="1", TOKENIZERS_PARALLELISM="false",
                        PYTHONUNBUFFERED="1", PYTHONNOUSERSITE="1")
+            env["DUCK_TTS_BACKEND"] = self.backend
             packages = ROOT / ".runtime/tts-packages"
             env.pop("PYTHONPATH", None)
             if packages.is_dir():
                 env["PYTHONPATH"] = str(packages)
             process = self._process = subprocess.Popen(
-                [str(worker_python()), str(Path(__file__).resolve()), "--worker", str(model_directory(self.model_root))],
+                [str(worker_python()), str(Path(__file__).resolve()), "--worker", str(model_directory(self.model_root, self.backend))],
                 stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=None, text=True, encoding="utf-8", env=env,
                 creationflags=subprocess.CREATE_NO_WINDOW if os.name == "nt" else 0)
             messages = self._messages = queue.Queue()
@@ -173,6 +192,31 @@ class QwenSpeech:
             self._error = None
         return process, messages
 
+    def _ensure_gguf(self, request_id):
+        from .qwen_gguf import GGUFEngine
+        with self._state:
+            if request_id in self._cancelled:
+                raise SpeechCancelled("这次播音已停止。")
+            if self._process is not None and self._process.poll() is None and self._loaded:
+                return self._gguf, None
+            self._stop_worker()
+            if not self.installed():
+                raise RuntimeError("GGUF 好奇女孩未准备好，请运行项目语音准备脚本。")
+            engine = self._gguf = GGUFEngine(model_directory(self.model_root, self.backend), PROFILE)
+            self._process = engine.start()
+
+        def check_cancel():
+            with self._state:
+                if request_id in self._cancelled or self._process is not engine.process:
+                    raise SpeechCancelled("这次播音已停止。")
+
+        engine.wait_ready(check_cancel)
+        with self._state:
+            check_cancel()
+            self._loaded = True
+            self._error = None
+        return engine, None
+
     def warmup(self):
         if not self._operation.acquire(blocking=False):
             return
@@ -189,7 +233,7 @@ class QwenSpeech:
             self._warm_done.set()
             self._operation.release()
 
-    def speak(self, text, speed=1.0, request_id=None):
+    def speak(self, text, speed=1.0, request_id=None, *, use_cache=True):
         request_id = request_id or str(uuid.uuid4())
         # Static, packaged operation prompts need no model slot at all.
         fixed = self._fixed_prompt(text, speed)
@@ -199,7 +243,7 @@ class QwenSpeech:
             key = (text, speed)
             if fixed is not None:
                 return fixed
-            if key in self._cache:
+            if use_cache and key in self._cache:
                 self._cache.move_to_end(key)
                 return self._cache[key]
         if self._warming:
@@ -212,21 +256,28 @@ class QwenSpeech:
                 if request_id in self._cancelled:
                     raise SpeechCancelled("这次播音已停止。")
                 self._active = request_id
+            load_started = time.monotonic()
             process, messages = self._ensure_worker(request_id)
-            process.stdin.write(json.dumps({"text": text, "speed": speed}, ensure_ascii=False) + "\n")
-            process.stdin.flush()
-            result = self._receive(messages, process, request_id)
-            data = base64.b64decode(result["audio"], validate=True)
+            load_ms = round((time.monotonic() - load_started) * 1000)
+            if self.backend == "gguf":
+                data, metrics = process.synthesize(text, speed, render_audio)
+            else:
+                process.stdin.write(json.dumps({"text": text, "speed": speed}, ensure_ascii=False) + "\n")
+                process.stdin.flush()
+                result = self._receive(messages, process, request_id)
+                data = base64.b64decode(result["audio"], validate=True)
+                metrics = result["metrics"]
             with self._state:
                 if request_id in self._cancelled:
                     raise SpeechCancelled("这次播音已停止。")
-                if len(data) <= 4 * 1024 * 1024:
+                if use_cache and len(data) <= 4 * 1024 * 1024:
                     self._cache[key] = data
                     self._cache_bytes += len(data)
                     while len(self._cache) > 48 or self._cache_bytes > 16 * 1024 * 1024:
                         _, removed = self._cache.popitem(last=False)
                         self._cache_bytes -= len(removed)
-                self.last_metrics = dict(result["metrics"], totalMs=round((time.monotonic() - started) * 1000))
+                self.last_metrics = dict(metrics, loadMs=load_ms, cacheHit=False,
+                                         totalMs=round((time.monotonic() - started) * 1000))
                 self._error = None
             print(json.dumps({"event": "local_tts", "voice": VOICE, **self.last_metrics}), file=sys.stderr, flush=True)
             return data
@@ -352,7 +403,8 @@ def worker(model_dir):
                 synthesis_ms = round((time.monotonic() - started) * 1000)
                 t = time.monotonic()
                 audio, metrics = render_audio(samples, sr, text, speed, profile)
-                metrics.update(synthesisMs=synthesis_ms, postprocessMs=round((time.monotonic() - t) * 1000), backend=backend_name())
+                metrics.update(synthesisMs=synthesis_ms, postprocessMs=round((time.monotonic() - t) * 1000),
+                               rawAudioMs=round(len(samples) / sr * 1000), backend=backend_name())
             print(json.dumps({"audio": base64.b64encode(audio).decode("ascii"), "metrics": metrics}), file=protocol, flush=True)
         except Exception as exc:
             print("Qwen worker: " + type(exc).__name__, file=sys.stderr, flush=True)

@@ -1,5 +1,5 @@
 {
-  "version": 1,
+  "version": 2,
   "mlx": {
     "repository": "mlx-community/Qwen3-TTS-12Hz-1.7B-Base-4bit",
     "revision": "37e955a1deb861c088ae5f3a67043185f3d1a60c",
@@ -138,5 +138,251 @@
         "gitBlobSha1": "4783fe10ac3adce15ac8f358ef5462739852c569"
       }
     ]
+  },
+  "gguf": {
+    "repository": "ggml-org/Qwen3-TTS-12Hz-1.7B-Base-GGUF",
+    "revision": "ca27d74bc954b73dadab5b71ca265d87fc861a7c",
+    "directory": "qwen3-tts-base-gguf",
+    "files": [
+      {
+        "path": "Qwen3-TTS-12Hz-1.7B-Base-Q4_K_M.gguf",
+        "size": 1035965280,
+        "sha256": "8d18c94acb2addd042f97da63c98be144eafa76d0d9495177eab65130cf85129"
+      },
+      {
+        "path": "mmproj-Qwen3-TTS-Base-ICL-bf16.gguf",
+        "url": "https://github.com/ZB-ur/pomegranagent-v2/releases/download/voice-gguf-20261119/mmproj-Qwen3-TTS-Base-ICL-bf16.gguf",
+        "size": 840287936,
+        "sha256": "3f256fee68a8188a4c372649fd9d83ab44089c9ca592ad9212d614e00efd738e",
+        "sourceRepository": "Qwen/Qwen3-TTS-12Hz-1.7B-Base",
+        "sourceRevision": "fd4b254389122332181a7c3db7f27e918eec64e3",
+        "conversion": "llama.cpp 4577932fab595eaa8b27ad71734d5de1f3c07d8c convert_hf_to_gguf.py BASE --mmproj --outtype bf16",
+        "includesReferenceEncoder": true
+      }
+    ]
+  },
+  "llama": {
+    "release": "b12503",
+    "commit": "4577932fab595eaa8b27ad71734d5de1f3c07d8c",
+    "directory": "llama-b12503",
+    "platforms": {
+      "windows-x64": {
+        "executable": "llama-server.exe",
+        "archives": [
+          {
+            "url": "https://github.com/ggml-org/llama.cpp/releases/download/b12503/llama-b12503-bin-win-cuda-12.4-x64.zip",
+            "path": "llama-b12503-bin-win-cuda-12.4-x64.zip",
+            "size": 363875811,
+            "sha256": "9df9b6316051ce258debb234b3475762eecd8721e6bb41474f0743d54aad08aa"
+          },
+          {
+            "url": "https://github.com/ggml-org/llama.cpp/releases/download/b12503/cudart-llama-bin-win-cuda-12.4-x64.zip",
+            "path": "cudart-llama-bin-win-cuda-12.4-x64.zip",
+            "size": 391443627,
+            "sha256": "8c79a9b226de4b3cacfd1f83d24f962d0773be79f1e7b75c6af4ded7e32ae1d6"
+          }
+        ]
+      },
+      "mac-arm64": {
+        "executable": "llama-server",
+        "archives": [
+          {
+            "url": "https://github.com/ggml-org/llama.cpp/releases/download/b12503/llama-b12503-bin-macos-arm64.tar.gz",
+            "path": "llama-b12503-bin-macos-arm64.tar.gz",
+            "size": 17282183,
+            "sha256": "e88d7e91198d0de6ceb3d33711ac01ee0d5b519cd9ba4e81854e3bba84f22214"
+          }
+        ]
+      }
+    }
+  },
+  "windowsPython": {
+    "version": "3.12.16",
+    "release": "20261110",
+    "path": "cpython-3.12.16+20261110-x86_64-pc-windows-msvc-install_only.tar.gz",
+    "url": "https://github.com/astral-sh/python-build-standalone/releases/download/20261110/cpython-3.12.16%2B20261110-x86_64-pc-windows-msvc-install_only.tar.gz",
+    "size": 47438699,
+    "sha256": "e23fe5b16926de1d81661b1a97352e89fb167549c55a6825796ccd0f32ec7f1b"
+  },
+  "windowsWheels": [
+    {
+      "path": "av-18.1.0-cp311-abi3-win_amd64.whl",
+      "url": "https://files.pythonhosted.org/packages/33/b4/76ba21e46704f632004276b85289a1582e95f5eff760436d6149875a1881/av-18.1.0-cp311-abi3-win_amd64.whl",
+      "size": 27595679,
+      "sha256": "ea1480b7a8d5405cb5f382b344731bf125fd2c1c6fae3964f6c48595628387ff",
+      "name": "av",
+      "version": "18.1.0"
+    },
+    {
+      "path": "cffi-2.1.1-cp312-cp312-win_amd64.whl",
+      "url": "https://files.pythonhosted.org/packages/d9/79/615cc094e2fb508cade7de88d3b4f6c4ec2bab695c97bce9153dc65aadf5/cffi-2.1.1-cp312-cp312-win_amd64.whl",
+      "size": 185919,
+      "sha256": "f53e442b08449d42821fa4a4fba000095af9f62742a500f978a9f557ec44339a",
+      "name": "cffi",
+      "version": "2.1.1"
+    },
+    {
+      "path": "imageio_ffmpeg-0.8.1-py3-none-win_amd64.whl",
+      "url": "https://files.pythonhosted.org/packages/82/0c/a1d49f3dd2688bd750b4986f8e271ad11f8e729a896070ea25f587b44da8/imageio_ffmpeg-0.8.1-py3-none-win_amd64.whl",
+      "size": 38893483,
+      "sha256": "f27ca4cb85e2d4946deedbce1a81245dfd942a2bcf94b53676fb3956aa95bf1b",
+      "name": "imageio_ffmpeg",
+      "version": "0.8.1"
+    },
+    {
+      "path": "numpy-2.5.3-cp312-cp312-win_amd64.whl",
+      "url": "https://files.pythonhosted.org/packages/3c/a1/accf6d4f0c80c5d9ba9735d6b1550e444180599f34dec69ca01360f717ad/numpy-2.5.3-cp312-cp312-win_amd64.whl",
+      "size": 12567828,
+      "sha256": "0a59a421a32580a009e8a1751345bf829631b990dc1794b80514ab722b435def",
+      "name": "numpy",
+      "version": "2.5.3"
+    },
+    {
+      "path": "pycparser-3.12-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/b6/ae/315bbeee126a769cbde43cf4908acb4b40408d8bf8bbf334dd7368d8dadf/pycparser-3.12-py3-none-any.whl",
+      "size": 62600,
+      "sha256": "a076f3f489b39b43ed13563a1dafe42447445bec2e294154ec5c57fcdda4c85e",
+      "name": "pycparser",
+      "version": "3.12"
+    },
+    {
+      "path": "pyloudnorm-0.2.0-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/aa/b6/65a49a05614b2548edbba3aab118f2ebe7441dfd778accdcdce9f6567f20/pyloudnorm-0.2.0-py3-none-any.whl",
+      "size": 10879,
+      "sha256": "9bb69afb904f59d007a7f9ba3d75d16fb8aeef35c44d6df822a9f192d69cf13f",
+      "name": "pyloudnorm",
+      "version": "0.2.0"
+    },
+    {
+      "path": "scipy-1.18.1-cp312-cp312-win_amd64.whl",
+      "url": "https://files.pythonhosted.org/packages/39/e7/979fd14e75008623df31ba70d6bb144700f68feadcea042021c06a05bf82/scipy-1.18.1-cp312-cp312-win_amd64.whl",
+      "size": 36658278,
+      "sha256": "5e4d44984abc0020154ea81b247adeddcc3ac5527b975ff798bd1ba0adc513c2",
+      "name": "scipy",
+      "version": "1.18.1"
+    },
+    {
+      "path": "sherpa_onnx-1.13.7-cp312-cp312-win_amd64.whl",
+      "url": "https://files.pythonhosted.org/packages/46/3d/7b5cdf6a1c01080b6c579134fba082c4fc35b13bc6e35d85285ab8fc9380/sherpa_onnx-1.13.7-cp312-cp312-win_amd64.whl",
+      "size": 2282452,
+      "sha256": "d6b8adb339e0e89cf9914de610c85d2d5e4715b09f566eaf796a92eb72c014d1",
+      "name": "sherpa_onnx",
+      "version": "1.13.7"
+    },
+    {
+      "path": "sherpa_onnx_core-1.13.7-py3-none-win_amd64.whl",
+      "url": "https://files.pythonhosted.org/packages/20/87/2ac78c15d4b6bc8ba663b4fef8a9d01ef32a09c336b828d27af3e4962116/sherpa_onnx_core-1.13.7-py3-none-win_amd64.whl",
+      "size": 16526006,
+      "sha256": "cbcb78ef8a3bb74acf0b9d0a8715e9b857491be8e2b1e8f589f09ecf3d2f2a0b",
+      "name": "sherpa_onnx_core",
+      "version": "1.13.7"
+    },
+    {
+      "path": "soundfile-0.14.0-py2.py3-none-win_amd64.whl",
+      "url": "https://files.pythonhosted.org/packages/ed/97/b39c18ac1df45e755ca22b8b00e872929da5d107998a207a5e4ac831bfda/soundfile-0.14.0-py2.py3-none-win_amd64.whl",
+      "size": 1021480,
+      "sha256": "299491d3499460fb1b74bb4bd78b57ffc2d243a5fafa7b6ec1b264875c78453e",
+      "name": "soundfile",
+      "version": "0.14.0"
+    },
+    {
+      "path": "typing_extensions-4.16.0-py3-none-any.whl",
+      "url": "https://files.pythonhosted.org/packages/49/d3/b8441a820a491ddfc024b0b0cf0393375b75ea13866d9c66727e54c2fc80/typing_extensions-4.16.0-py3-none-any.whl",
+      "size": 45571,
+      "sha256": "481caa481374e813c1b176ada14e97f1f67a4539ce9cfeb3f350d78d6370c2e8",
+      "name": "typing_extensions",
+      "version": "4.16.0"
+    }
+  ],
+  "windowsVCRedist": {
+    "path": "VC_redist.x64.exe",
+    "url": "https://download.visualstudio.microsoft.com/download/pr/e9604e21-4b79-4096-a4b3-1b63d4b55b4d/CC0FF0EB1DC3F5188AE6300FAEF32BF5BEEBA4BDD6E8E445A9184072096B713B/VC_redist.x64.exe",
+    "discoveryUrl": "https://aka.ms/vs/17/release/vc_redist.x64.exe",
+    "size": 25635768,
+    "sha256": "cc0ff0eb1dc3f5188ae6300faef32bf5beeba4bdd6e8e445a9184072096b713b",
+    "payloadCabOffset": 686152,
+    "payloadCabSize": 24939223,
+    "runtimeCab": "a12",
+    "runtimeCabSha256": "640aa6c516c72444523b8fbe034db46ff4e118ed02705340e3ccb62d426ff040",
+    "files": [
+      {
+        "path": "concrt140.dll",
+        "archivePath": "concrt140.dll_amd64",
+        "size": 324208,
+        "sha256": "2405355f0a58067b258f8df33c327e3a3d716eaac5a3a5aebb757842d85bd376"
+      },
+      {
+        "path": "msvcp140.dll",
+        "archivePath": "msvcp140.dll_amd64",
+        "size": 557728,
+        "sha256": "0f885b509a685d2bbfa652fed26b5fb31d88fbdab0a978c641d1c7b8aa460aa9"
+      },
+      {
+        "path": "msvcp140_1.dll",
+        "archivePath": "msvcp140_1.dll_amd64",
+        "size": 35952,
+        "sha256": "bfad5aef4c63a669e3c140655cdfdf395b6c979b400a447bd5dcb65ed8826c3d"
+      },
+      {
+        "path": "msvcp140_2.dll",
+        "archivePath": "msvcp140_2.dll_amd64",
+        "size": 280200,
+        "sha256": "3ea06f0ee098b4823cb79599df3780e7f23cce52c19aac31d2a0d47efe33a5e9"
+      },
+      {
+        "path": "msvcp140_atomic_wait.dll",
+        "archivePath": "msvcp140_atomic_wait.dll_amd64",
+        "size": 50304,
+        "sha256": "640b2aefced484d0368eea5bdd06addd0658a3a70a49256e560d6923b404a479"
+      },
+      {
+        "path": "msvcp140_codecvt_ids.dll",
+        "archivePath": "msvcp140_codecvt_ids.dll_amd64",
+        "size": 31872,
+        "sha256": "f2069a52880ec885ee7f0511186100eb7fada0411a2b4948fafea7735b878a18"
+      },
+      {
+        "path": "vcamp140.dll",
+        "archivePath": "vcamp140.dll_amd64",
+        "size": 418944,
+        "sha256": "52af68f35476bd03d7b97752b01bef358ffdda568d150057d6ce809f77c4f704"
+      },
+      {
+        "path": "vccorlib140.dll",
+        "archivePath": "vccorlib140.dll_amd64",
+        "size": 352384,
+        "sha256": "19839407c3fdbc824e5bce189bf68ddf8097f12ec28b757797ffa0415c144ddd"
+      },
+      {
+        "path": "vcomp140.dll",
+        "archivePath": "vcomp140.dll_amd64",
+        "size": 193152,
+        "sha256": "55aba23cdcd6484fbb06f4155b8ca75adfce7a881f10afd0c49457165e677164"
+      },
+      {
+        "path": "vcruntime140.dll",
+        "archivePath": "vcruntime140.dll_amd64",
+        "size": 124544,
+        "sha256": "d5e4d9a3e835fa679450145d6a7d94e36573a509317111904d9b3712c30d9066"
+      },
+      {
+        "path": "vcruntime140_1.dll",
+        "archivePath": "vcruntime140_1.dll_amd64",
+        "size": 49792,
+        "sha256": "1f2d41c4aa5db0bc33ebf7b66d72943a817d7ce6cbe880502a9403823633093f"
+      },
+      {
+        "path": "vcruntime140_threads.dll",
+        "archivePath": "vcruntime140_threads.dll_amd64",
+        "size": 38528,
+        "sha256": "219915cf20822f34d5e7c1fdd4e21ae7f3396881096c51036225fb8f84b47afa"
+      }
+    ]
+  },
+  "macPackagingTool": {
+    "path": "7z2606-mac.tar.xz",
+    "url": "https://github.com/ip7z/7zip/releases/download/26.06/7z2606-mac.tar.xz",
+    "size": 965712,
+    "sha256": "b6f17920b4240940461dac8ef4009891881ac44d2a5ead625ede2ec8472185dd"
   }
 }

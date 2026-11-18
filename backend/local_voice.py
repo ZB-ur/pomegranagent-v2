@@ -40,7 +40,7 @@ class LocalVoice:
         return {"ready": ready, "asrReady": bool(asr_ready and "asr" not in self._errors),
                 "ttsReady": bool(tts_ready and "tts" not in self._errors), "message": message,
                 "provider": "local", "asrModel": "SenseVoice Small int8 2024-07-17",
-                "ttsModel": "Qwen3-TTS 1.7B Base · 好奇女孩", "defaultVoice": VOICE,
+                "ttsModel": "Qwen3-TTS 1.7B Base · 好奇女孩 · " + {"mlx": "MLX 4-bit", "gguf": "GGUF Q4_K_M", "bf16": "BF16 CUDA"}[tts["backend"]], "defaultVoice": VOICE,
                 "voices": list(self.VOICES), "voiceLabels": self.VOICES,
                 "ttsBackend": tts["backend"], "warming": self._warming or tts["warming"],
                 "loaded": {"asr": self._asr is not None, "tts": tts["loaded"]}}

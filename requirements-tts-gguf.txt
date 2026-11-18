@@ -1,0 +1,4 @@
+# Native llama.cpp handles inference; these wheels process its WAV output.
+# No PyTorch, CUDA Toolkit, or MLX package is needed for GGUF.
+soundfile==0.14.0
+pyloudnorm==0.2.0

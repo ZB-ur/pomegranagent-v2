@@ -1,5 +1,12 @@
 @echo off
+setlocal
 cd /d "%~dp0"
+if exist ".runtime\python\python.exe" (
+  set "PYTHONPATH=%~dp0.runtime\app-packages"
+  set "PYTHONNOUSERSITE=1"
+  set "DUCK_PYTHON=.runtime\python\python.exe"
+  goto install_voice
+)
 if not exist ".venv\Scripts\python.exe" (
   py -3.12 -m venv .venv
   if errorlevel 1 (
@@ -8,7 +15,9 @@ if not exist ".venv\Scripts\python.exe" (
     exit /b 1
   )
 )
-".venv\Scripts\python.exe" scripts\setup_voice.py
+set "DUCK_PYTHON=.venv\Scripts\python.exe"
+:install_voice
+"%DUCK_PYTHON%" scripts\setup_voice.py
 if errorlevel 1 (
   pause
   exit /b 1

@@ -4,8 +4,11 @@ Official project: https://github.com/QwenLM/Qwen3-TTS
 Official CUDA weights: https://huggingface.co/Qwen/Qwen3-TTS-12Hz-1.7B-Base
 Apple Silicon conversion: https://huggingface.co/mlx-community/Qwen3-TTS-12Hz-1.7B-Base-4bit
 Qwen3-TTS is distributed under Apache License 2.0; see LICENSE-Qwen3-TTS.txt.
-The project does not modify the model weights. Revisions and file digests are
-recorded in qwen-models.json; the MLX conversion is 4-bit, CUDA weights are BF16.
+Revisions and file digests are recorded in qwen-models.json. MLX uses its pinned
+4-bit conversion; the optional PyTorch CUDA baseline uses official BF16 weights.
+Windows defaults to GGUF Q4_K_M with a BF16 auxiliary model converted from the
+official Base weights. This conversion includes the reference encoder so the
+selected reference audio and transcript are both used for voice cloning.
 
 The reference.wav is a synthetic VoiceDesign output, not a child's recording.
 It is the exact curious-girl reference selected in the 2026-11-17 audition.
@@ -24,3 +27,30 @@ Only model setup downloads public weights/dependencies. ASR and TTS inference
 use local files and do not call cloud speech APIs. Dialogue/summary retain the
 existing separately configured service. No credentials or classroom data are
 included in the package builder's allowlist.
+
+GGUF/native runtime (Windows CUDA 12.4; optional Mac Metal diagnostic path)
+- llama.cpp b12503, commit 4577932fab595eaa8b27ad71734d5de1f3c07d8c (MIT):
+  https://github.com/ggml-org/llama.cpp
+  The upstream MIT license is included as LICENSE-llama.cpp.txt. The CUDA
+  12.4 vendor EULA is included as LICENSE-CUDA-12.4.html.
+- Q4_K_M talker: ggml-org/Qwen3-TTS-12Hz-1.7B-Base-GGUF, revision
+  ca27d74bc954b73dadab5b71ca265d87fc861a7c (derived from Apache-2.0 Qwen weights).
+- Full ICL auxiliary model: Qwen/Qwen3-TTS-12Hz-1.7B-Base revision
+  fd4b254389122332181a7c3db7f27e918eec64e3, converted by the above llama.cpp
+  commit using: convert_hf_to_gguf.py BASE --mmproj --outtype bf16
+  SHA256: 3f256fee68a8188a4c372649fd9d83ab44089c9ca592ad9212d614e00efd738e
+  The smaller 669 MB public auxiliary file lacks the reference encoder and is
+  deliberately not used. The conversion changes representation, not training.
+
+Windows portable distribution
+- CPython 3.12.16, Astral python-build-standalone release 20261110.
+  https://github.com/astral-sh/python-build-standalone
+  Python license files stay inside .runtime/python. Microsoft Visual C++
+  2022 runtime DLLs from the pinned official redistributable accompany
+  llama-server for local DLL discovery; see LICENSE-MSVC-2022.rtf. The
+  application does not install or modify system-wide Visual C++ components.
+- Exact CPython, native archive and Windows wheel URLs, sizes and SHA256 digests
+  are pinned in qwen-models.json. Each wheel's dist-info licenses/metadata stay
+  in .runtime/app-packages. No installed packages are fetched at inference time.
+- Cross-assembly and archive inspection on macOS do not establish Windows CUDA
+  acceptance; the target teacher computer must still run and listen.
